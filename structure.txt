@@ -1,0 +1,43 @@
+acne_diffusion/
+├── README.md
+├── requirements.txt
+├── setup.py
+├── configs/
+│   ├── __init__.py
+│   ├── base_config.py
+│   ├── diffusion_config.py
+│   └── classifier_config.py
+├── src/
+│   ├── __init__.py
+│   ├── data/
+│   │   ├── __init__.py
+│   │   ├── dataset.py
+│   │   └── transforms.py
+│   ├── models/
+│   │   ├── __init__.py
+│   │   ├── diffusion.py
+│   │   └── classifier.py
+│   ├── training/
+│   │   ├── __init__.py
+│   │   ├── diffusion_trainer.py
+│   │   ├── classifier_trainer.py
+│   │   └── utils.py
+│   ├── inference/
+│   │   ├── __init__.py
+│   │   ├── diffusion_inference.py
+│   │   └── classifier_inference.py
+│   └── utils/
+│       ├── __init__.py
+│       ├── checkpoints.py
+│       ├── visualization.py
+│       └── logging.py
+├── scripts/
+│   ├── train_diffusion.py
+│   ├── train_classifier.py
+│   ├── generate_samples.py
+│   └── evaluate_model.py
+└── experiments/
+    ├── logs/
+    ├── checkpoints/
+    ├── results/
+    └── configs/

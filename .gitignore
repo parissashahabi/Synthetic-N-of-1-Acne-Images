@@ -1,0 +1,167 @@
+# Model checkpoints and weights
+*.pth
+*.pt
+*.ckpt
+*.pkl
+*.h5
+*.hdf5
+*.safetensors
+
+# Experiment directories (contain checkpoints, logs, results)
+experiments/
+!experiments/.gitkeep
+!experiments/README.md
+
+# Generated samples and images
+samples/
+generated*/
+results/
+outputs/
+*_samples/
+*_results/
+*_outputs/
+
+# Dataset directories
+# data/acne_dataset/
+!data/.gitkeep
+!data/README.md
+
+# Logs and temporary files
+logs/
+*.log
+*.out
+*.err
+slurm-*.out
+slurm-*.err
+
+# Backup directories
+checkpoints_backup/
+backup/
+backups/
+*_backup/
+
+# Cache directories
+cache/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+.cache/
+
+# Python virtual environments
+venv/
+env/
+ENV/
+.venv/
+.env/
+
+# Conda environments (if stored locally)
+conda-env/
+miniconda/
+anaconda/
+
+# Jupyter notebook checkpoints
+.ipynb_checkpoints/
+*.ipynb
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Temporary and system files
+tmp/
+temp/
+*.tmp
+*.temp
+.temporary/
+
+# Large data files
+*.zip
+*.tar
+*.tar.gz
+*.rar
+*.7z
+
+# Model artifacts and intermediate files
+wandb/
+mlruns/
+.mlflow/
+tensorboard_logs/
+tb_logs/
+
+# Configuration files with sensitive data
+.env
+.env.local
+secrets.yml
+config_private.yml
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Documentation build
+docs/_build/
+docs/build/
+
+# Test coverage
+htmlcov/
+.tox/
+.coverage.*
+
+# PyTorch specific
+lightning_logs/
+checkpoints/
+saved_models/
+
+# SLURM specific
+*.sbatch.backup
+job_*.sh.backup
+
+# Large text files (often logs or data)
+*.txt.large
+*_large.txt
+
+# Specific to your project structure
+quick_test_*/
+test_run/
+diffusion_*/samples/
+diffusion_*/checkpoints/
+diffusion_*/logs/
+diffusion_*/results/
+
+# Keep some important files even if they match patterns above
+!requirements.txt
+!setup.py
+!Makefile
+!*.md
+!QUICKSTART.md
+!README.md
+
+# Keep configuration files
+!configs/
+!configs/**/*.py
+!configs/**/*.yml
+!configs/**/*.yaml
+!configs/**/*.json
+
+# Keep source code
+!src/
+!src/**/*.py
+
+# Keep scripts
+!scripts/
+!scripts/**/*.py
+!scripts/**/*.sh
+
+# Keep example SLURM scripts
+!slurm_job_examples.sh
+!slurm_job_test.sh
+!slurm_job_diffusion.sh
