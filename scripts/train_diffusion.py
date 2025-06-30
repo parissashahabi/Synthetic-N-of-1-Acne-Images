@@ -103,6 +103,14 @@ def main():
     parser.add_argument('--device', type=str, default='auto', 
                        choices=['auto', 'cuda', 'cpu'], help='Device to use')
     
+    # Wandb arguments
+    parser.add_argument('--wandb', action='store_true', help='Enable wandb logging')
+    parser.add_argument('--wandb-project', type=str, default='acne-diffusion',
+                       help='Wandb project name')
+    parser.add_argument('--wandb-entity', type=str, help='Wandb entity/username')
+    parser.add_argument('--wandb-tags', type=str, nargs='+', help='Wandb tags')
+    parser.add_argument('--wandb-name', type=str, help='Wandb run name')
+    
     args = parser.parse_args()
     
     # Setup device
@@ -132,6 +140,22 @@ def main():
         training_config.batch_size = args.batch_size
     if args.lr:
         training_config.learning_rate = args.lr
+    
+    # Wandb configuration
+    if args.wandb:
+        training_config.use_wandb = True
+    if args.wandb_project:
+        training_config.wandb_project = args.wandb_project
+    if args.wandb_entity:
+        training_config.wandb_entity = args.wandb_entity
+    if args.wandb_tags:
+        training_config.wandb_tags = args.wandb_tags
+    
+    # Create experiment name with timestamp if wandb name provided
+    if args.wandb_name:
+        import time
+        timestamp = int(time.time())
+        training_config.experiment_dir = f"{training_config.experiment_dir}/{args.wandb_name}_{timestamp}"
     
     # Setup data
     train_loader, val_loader = setup_data(training_config, data_config)

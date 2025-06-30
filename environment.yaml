@@ -11,7 +11,7 @@ dependencies:
   - torchaudio>=0.13.0
   - pytorch-cuda=11.8
   - pip
-  - numpy>=1.21.0
+  - numpy>=1.21.0,<2.0.0  # Pin NumPy to avoid compatibility issues
   - matplotlib>=3.6.0
   - scikit-learn>=1.0.0
   - tqdm>=4.64.0
@@ -22,7 +22,7 @@ dependencies:
     - "diffusers[torch]>=0.21.0"
     - Pillow>=9.0.0
     - tensorboard>=2.10.0
-    - wandb>=0.13.0
+    - wandb>=0.17.0  # Updated to latest version with NumPy 2.0 support
     - hydra-core>=1.3.0
     - omegaconf>=2.3.0
     - pytest>=6.0
@@ -32,3 +32,4 @@ dependencies:
     - mypy>=0.900
     - pandas>=1.5.0
     - seaborn>=0.11.0
+    - einops>=0.6.0

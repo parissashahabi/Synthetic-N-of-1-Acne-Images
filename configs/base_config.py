@@ -30,6 +30,12 @@ class BaseConfig:
     data_dir: str = "/data/acne_dataset"
     experiment_dir: str = "./experiments"
     
+    # Wandb settings
+    use_wandb: bool = False
+    wandb_project: str = "acne-diffusion"
+    wandb_entity: Optional[str] = None  # Your wandb username/team
+    wandb_tags: Optional[List[str]] = None
+    
     # def __post_init__(self):
     #     """Create necessary directories."""
     #     os.makedirs(self.experiment_dir, exist_ok=True)

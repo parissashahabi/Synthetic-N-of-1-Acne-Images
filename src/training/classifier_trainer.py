@@ -11,6 +11,7 @@ from generative.networks.schedulers.ddpm import DDPMScheduler
 
 from models.classifier import ClassifierModel
 from utils.checkpoints import CheckpointManager
+from utils.logging import setup_logging, ExperimentLogger
 from configs.classifier_config import ClassifierTrainingConfig
 
 
@@ -44,6 +45,16 @@ class ClassifierTrainer:
         self.checkpoint_manager = CheckpointManager(
             checkpoint_dir=os.path.join(config.experiment_dir, "checkpoints"),
             model_name="classifier"
+        )
+        
+        # Setup logging
+        self.logger = setup_logging(
+            experiment_dir=config.experiment_dir,
+            experiment_name=f"classifier_{int(time.time())}",
+            use_wandb=config.use_wandb,
+            use_tensorboard=False,
+            wandb_project=config.wandb_project,
+            config=config.__dict__
         )
         
         # Training state
@@ -172,17 +183,51 @@ class ClassifierTrainer:
         """Main training loop."""
         print(f"🎓 Starting classifier training for {self.config.n_epochs} epochs")
         
+        # Log initial info using correct method names
+        if hasattr(self.logger, 'logger'):
+            # Get model info manually
+            total_params = sum(p.numel() for p in self.model.model.parameters())
+            trainable_params = sum(p.numel() for p in self.model.model.parameters() if p.requires_grad)
+            model_size_mb = total_params * 4 / (1024 * 1024)
+            
+            self.logger.logger.info(f"📊 Classifier Model Information:")
+            self.logger.logger.info(f"   Total parameters: {total_params:,}")
+            self.logger.logger.info(f"   Trainable parameters: {trainable_params:,}")
+            self.logger.logger.info(f"   Model size: {model_size_mb:.1f} MB")
+            self.logger.logger.info(f"   Classes: {self.model.config.out_channels} (acne severity levels)")
+            
+            self.logger.logger.info(f"🖥️ Device Information:")
+            self.logger.logger.info(f"   Device: {self.device}")
+            if self.device.type == 'cuda':
+                self.logger.logger.info(f"   GPU Name: {torch.cuda.get_device_name(self.device)}")
+                self.logger.logger.info(f"   GPU Memory: {torch.cuda.get_device_properties(self.device).total_memory / 1024**3:.1f} GB")
+            
+            self.logger.logger.info(f"📊 Dataset Information:")
+            self.logger.logger.info(f"   Training samples: {len(train_loader.dataset):,}")
+            self.logger.logger.info(f"   Validation samples: {len(val_loader.dataset):,}")
+            self.logger.logger.info(f"   Batch size: {self.config.batch_size}")
+            
+            self.logger.logger.log_training_start(self.config.n_epochs)
+        
         total_start = time.time()
         
         for epoch in range(self.start_epoch, self.start_epoch + self.config.n_epochs):
+            epoch_start = time.time()
+            
             # Training
             train_loss, train_accuracy = self.train_epoch(train_loader, epoch)
             self.epoch_loss_list.append(train_loss)
+            
+            epoch_time = time.time() - epoch_start
             
             print(f"Epoch {epoch + 1}/{self.start_epoch + self.config.n_epochs}")
             print(f"  Training - Loss: {train_loss:.4f}, Accuracy: {train_accuracy:.2f}%")
             
             # Validation
+            val_loss = None
+            val_accuracy = None
+            class_accuracies = None
+            
             if (epoch + 1) % self.config.val_interval == 0:
                 val_loss, val_accuracy, class_accuracies = self.validate(val_loader)
                 self.val_epoch_loss_list.append(val_loss)
@@ -201,7 +246,7 @@ class ClassifierTrainer:
                 
                 # Save best model
                 if is_best:
-                    self.checkpoint_manager.save_checkpoint(
+                    checkpoint_path = self.checkpoint_manager.save_checkpoint(
                         model=self.model.model,
                         optimizer=self.optimizer,
                         epoch=epoch,
@@ -215,10 +260,73 @@ class ClassifierTrainer:
                             'best_val_accuracy': self.best_val_accuracy
                         }
                     )
+                    
+                    # Log best checkpoint
+                    if hasattr(self.logger, 'logger'):
+                        self.logger.logger.log_checkpoint(checkpoint_path, epoch, is_best=True)
+            
+            # Log epoch metrics
+            if hasattr(self.logger, 'log_epoch'):
+                train_metrics = {"loss": train_loss, "accuracy": train_accuracy}
+                val_metrics = None
+                if val_loss is not None:
+                    val_metrics = {"loss": val_loss, "accuracy": val_accuracy}
+                
+                self.logger.log_epoch(
+                    epoch=epoch,
+                    train_metrics=train_metrics,
+                    val_metrics=val_metrics,
+                    lr=self.optimizer.param_groups[0]['lr'],
+                    epoch_time=epoch_time
+                )
+                
+                # Log per-class accuracies if available
+                if class_accuracies is not None and hasattr(self.logger, 'log_metrics'):
+                    class_metrics = {}
+                    for i, acc in enumerate(class_accuracies):
+                        class_metrics[f"val/class_{i}_accuracy"] = acc
+                    self.logger.log_metrics(class_metrics, step=epoch)
+                    
+            elif hasattr(self.logger, 'log_metrics'):
+                # Alternative logging method
+                metrics = {
+                    "train/loss": train_loss,
+                    "train/accuracy": train_accuracy,
+                    "learning_rate": self.optimizer.param_groups[0]['lr'],
+                    "epoch_time": epoch_time
+                }
+                if val_loss is not None:
+                    metrics["val/loss"] = val_loss
+                    metrics["val/accuracy"] = val_accuracy
+                
+                self.logger.log_metrics(metrics, step=epoch)
+                
+                # Log per-class accuracies
+                if class_accuracies is not None:
+                    class_metrics = {}
+                    for i, acc in enumerate(class_accuracies):
+                        class_metrics[f"val/class_{i}_accuracy"] = acc
+                    self.logger.log_metrics(class_metrics, step=epoch)
+            
+            # Log GPU memory usage periodically
+            if (epoch + 1) % 10 == 0 and hasattr(self.logger, 'logger'):  # Every 10 epochs
+                if self.device.type == 'cuda':
+                    try:
+                        allocated = torch.cuda.memory_allocated(self.device) / 1024**3
+                        reserved = torch.cuda.memory_reserved(self.device) / 1024**3
+                        total = torch.cuda.get_device_properties(self.device).total_memory / 1024**3
+                        
+                        self.logger.logger.info(f"💾 GPU Memory Usage:")
+                        self.logger.logger.info(f"   Allocated: {allocated:.2f} GB")
+                        self.logger.logger.info(f"   Reserved: {reserved:.2f} GB")
+                        self.logger.logger.info(f"   Total: {total:.2f} GB")
+                        self.logger.logger.info(f"   Utilization: {(reserved/total)*100:.1f}%")
+                    except Exception as e:
+                        print(f"⚠️ Could not log GPU memory: {e}")
             
             # Save regular checkpoints
             if (epoch + 1) % self.config.checkpoint_interval == 0:
-                self.checkpoint_manager.save_checkpoint(
+                checkpoint_path = self.checkpoint_manager.save_checkpoint(
                     model=self.model.model,
                     optimizer=self.optimizer,
                     epoch=epoch,
@@ -231,14 +339,27 @@ class ClassifierTrainer:
                         'best_val_accuracy': self.best_val_accuracy
                     }
                 )
+                
+                # Log checkpoint info
+                if hasattr(self.logger, 'logger'):
+                    self.logger.logger.log_checkpoint(checkpoint_path, epoch, is_best=False)
         
         total_time = time.time() - total_start
+        
+        if hasattr(self.logger, 'logger'):
+            self.logger.logger.log_training_end(self.config.n_epochs)
+        
         print(f"🎉 Classifier training completed in {total_time:.2f}s")
         print(f"🌟 Best validation loss: {self.best_val_loss:.4f}")
         print(f"🎯 Best validation accuracy: {self.best_val_accuracy:.2f}%")
         
         # Save final model
         final_path = self.checkpoint_manager.save_final_model(self.model.model)
+        
+        # Finish logging
+        if hasattr(self.logger, 'finish'):
+            self.logger.finish()
+        
         return final_path
     
     def resume_from_checkpoint(self, checkpoint_path: str):

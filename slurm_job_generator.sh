@@ -69,6 +69,15 @@ if [ \$? -ne 0 ]; then
     exit 1
 fi
 
+# Setup wandb if not already configured (for wandb jobs)
+if [[ "\$0" == *"wandb"* ]]; then
+    echo "🌐 Checking wandb configuration..."
+    if [ ! -f "\$HOME/.netrc" ] && [ -z "\$WANDB_API_KEY" ]; then
+        echo "⚠️ wandb not configured. Set WANDB_API_KEY environment variable or run 'wandb login'"
+        echo "💡 You can also disable wandb by removing --wandb flag"
+    fi
+fi
+
 # Verify CUDA availability
 echo "🖥️ Checking CUDA availability..."
 python -c "import torch; print(f'CUDA available: {torch.cuda.is_available()}'); print(f'GPU count: {torch.cuda.device_count()}'); [print(f'GPU {i}: {torch.cuda.get_device_name(i)}') for i in range(torch.cuda.device_count())] if torch.cuda.is_available() else print('No GPUs available')"
@@ -133,6 +142,25 @@ create_slurm_script \
     --device cuda" \
     "Train diffusion model"
 
+# 1b. Diffusion training with wandb
+create_slurm_script \
+    "job_diffusion_wandb.sh" \
+    "acne_diffusion_wandb" \
+    "24:00:00" \
+    "32GB" \
+    "8" \
+    "python scripts/train_diffusion.py \\
+    --data-dir ./data/acne_dataset \\
+    --experiment-dir \"\$EXPERIMENT_DIR\" \\
+    --epochs 2000 \\
+    --batch-size 16 \\
+    --lr 1e-4 \\
+    --device cuda \\
+    --wandb \\
+    --wandb-name diffusion_cluster_run \\
+    --wandb-tags cluster gpu slurm" \
+    "Train diffusion model with wandb logging"
+
 # 2. Classifier training
 create_slurm_script \
     "job_classifier.sh" \
@@ -148,6 +176,25 @@ create_slurm_script \
     --lr 3e-4 \\
     --device cuda" \
     "Train classifier model"
+
+# 2b. Classifier training with wandb
+create_slurm_script \
+    "job_classifier_wandb.sh" \
+    "acne_classifier_wandb" \
+    "12:00:00" \
+    "32GB" \
+    "8" \
+    "python scripts/train_classifier.py \\
+    --data-dir ./data/acne_dataset \\
+    --experiment-dir \"\$EXPERIMENT_DIR\" \\
+    --epochs 2000 \\
+    --batch-size 32 \\
+    --lr 3e-4 \\
+    --device cuda \\
+    --wandb \\
+    --wandb-name classifier_cluster_run \\
+    --wandb-tags cluster gpu slurm" \
+    "Train classifier model with wandb logging"
 
 # 3. Quick test job (5 epochs)
 create_slurm_script \
@@ -253,7 +300,10 @@ for lr in \"\${LRS[@]}\"; do
             --epochs 50 \\
             --batch-size \"\$bs\" \\
             --lr \"\$lr\" \\
-            --device cuda
+            --device cuda \\
+            --wandb \\
+            --wandb-name \"diffusion_lr\${lr}_bs\${bs}\" \\
+            --wandb-tags hyperparam_search cluster
         
         if [ \$? -ne 0 ]; then
             echo \"❌ Failed for LR=\$lr, BS=\$bs\"
@@ -267,23 +317,23 @@ echo ""
 echo -e "${GREEN}✅ All SLURM job scripts created successfully!${NC}"
 echo ""
 echo -e "${BLUE}📋 Available job scripts:${NC}"
-echo "  job_test_quick.sh          - Quick test (5 epochs, 30 min)"
-echo "  job_diffusion_single.sh    - Diffusion training (100 epochs, 24h)"
-echo "  job_classifier_single.sh   - Classifier training (200 epochs, 12h)"
-echo "  job_diffusion_long.sh      - Long diffusion training (500 epochs, 72h)"
-echo "  job_classifier_long.sh     - Long classifier training (500 epochs, 48h)"
+echo "  job_test_diffusion.sh      - Quick test (5 epochs, 30 min)"
+echo "  job_test_classifier.sh     - Quick test (5 epochs, 30 min)"
+echo "  job_diffusion.sh           - Diffusion training (without wandb)"
+echo "  job_diffusion_wandb.sh     - Diffusion training (with wandb)"
+echo "  job_classifier.sh          - Classifier training (without wandb)"
+echo "  job_classifier_wandb.sh    - Classifier training (with wandb)"
 echo "  job_diffusion_resume.sh    - Resume diffusion from checkpoint"
 echo "  job_classifier_resume.sh   - Resume classifier from checkpoint"
-echo "  job_diffusion_hyperparam.sh - Hyperparameter search"
-echo "  job_diffusion_multi.sh     - Multi-GPU training"
+echo "  job_diffusion_hyperparam.sh - Hyperparameter search with wandb"
 echo ""
 echo -e "${YELLOW}🧪 To test your setup:${NC}"
-echo "  1. sbatch job_test_quick.sh"
+echo "  1. sbatch job_test_diffusion.sh"
 echo "  2. Check logs: tail -f logs/acne_test_*.out"
 echo ""
 echo -e "${YELLOW}🚀 To start training:${NC}"
-echo "  sbatch job_diffusion_single.sh"
-echo "  sbatch job_classifier_single.sh"
+echo "  sbatch job_diffusion_wandb.sh"
+echo "  sbatch job_classifier_wandb.sh"
 echo ""
 echo -e "${YELLOW}🔄 To resume training:${NC}"
 echo "  export CHECKPOINT_TO_RESUME=path/to/checkpoint.pth"
@@ -294,8 +344,9 @@ echo "  squeue -u \$USER"
 echo "  tail -f logs/acne_*_*.out"
 echo ""
 echo -e "${BLUE}💡 Pro tips:${NC}"
-echo "  • Always test with job_test_quick.sh first"
+echo "  • Always test with job_test_diffusion.sh first"
 echo "  • Check your conda environment: conda activate diffusion-env"
 echo "  • Verify dataset location: ls data/acne_dataset/"
+echo "  • Setup wandb: wandb login (for wandb jobs)"
 echo "  • Monitor GPU usage: nvidia-smi (in interactive session)"
 echo ""
