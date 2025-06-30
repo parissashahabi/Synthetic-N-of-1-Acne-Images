@@ -14,7 +14,9 @@ class ClassifierModelConfig:
     spatial_dims: int = 2
     in_channels: int = 3
     out_channels: int = 4  # Number of severity levels
-    channels: Tuple[int, ...] = (128, 128, 256, 256, 512)
+    base_channels: int = 128
+    channels_multiple: Tuple[float, ...] = (1, 1, 2, 3, 4)
+    # channels: Tuple[int, ...] = (128, 128, 256, 256, 512)
     attention_levels: Tuple[bool, ...] = (False, False, False, False, True)
     num_res_blocks: Tuple[int, ...] = (2, 2, 2, 2, 2)
     num_head_channels: int = 64

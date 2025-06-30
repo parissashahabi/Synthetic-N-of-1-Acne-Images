@@ -129,11 +129,16 @@ class ClassifierModel:
     
     def _create_model(self) -> FixedDiffusionModelEncoder:
         """Create the classifier model."""
+
+        num_channels = tuple(
+            int(self.config.base_channels * mult) for mult in self.config.channels_multiple
+        )
+
         return FixedDiffusionModelEncoder(
             spatial_dims=self.config.spatial_dims,
             in_channels=self.config.in_channels,
             out_channels=self.config.out_channels,
-            channels=self.config.channels,
+            channels=num_channels,
             attention_levels=self.config.attention_levels,
             num_res_blocks=self.config.num_res_blocks,
             num_head_channels=self.config.num_head_channels,
@@ -154,4 +159,4 @@ class ClassifierModel:
             'total_parameters': total_params,
             'trainable_parameters': trainable_params,
             'model_size_mb': total_params * 4 / (1024 * 1024),
-        }
+        }   

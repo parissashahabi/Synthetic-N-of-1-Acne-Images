@@ -23,11 +23,16 @@ class DiffusionModel:
         
     def _create_model(self) -> DiffusionModelUNet:
         """Create the U-Net model."""
+
+        num_channels = tuple(
+            int(self.config.base_channels * mult) for mult in self.config.channels_multiple
+        )
+
         return DiffusionModelUNet(
             spatial_dims=self.config.spatial_dims,
             in_channels=self.config.in_channels,
             out_channels=self.config.out_channels,
-            num_channels=self.config.num_channels,
+            num_channels=num_channels,
             attention_levels=self.config.attention_levels,
             num_res_blocks=self.config.num_res_blocks,
             num_head_channels=self.config.num_head_channels,

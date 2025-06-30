@@ -14,12 +14,16 @@ class DiffusionModelConfig:
     spatial_dims: int = 2
     in_channels: int = 3
     out_channels: int = 3
-    num_channels: Tuple[int, ...] = (128, 128, 256, 256, 512, 512)
+    base_channels: int = 256
+    channels_multiple: Tuple[float, ...] = (1, 1, 2, 3, 4, 4)
+    # num_channels: Tuple[int, ...] = (128, 128, 256, 256, 512, 512)
     attention_levels: Tuple[bool, ...] = (False, False, False, False, True, False)
-    num_res_blocks: int = 2
+    num_res_blocks: int = 2 # Depth = 2
     num_head_channels: int = 64
     with_conditioning: bool = False
     resblock_updown: bool = True
+
+    dropout: float = 0.0
 
 
 @dataclass
