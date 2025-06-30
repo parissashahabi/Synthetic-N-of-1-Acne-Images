@@ -45,9 +45,9 @@ class DiffusionTrainingConfig(BaseConfig):
     sample_interval: int = 10
     process_interval: int = 10
     
-    def __post_init__(self):
-        super().__post_init__()
-        # Create diffusion-specific directories
-        import os
-        os.makedirs(os.path.join(self.experiment_dir, "diffusion"), exist_ok=True)
-        os.makedirs(os.path.join(self.experiment_dir, "samples"), exist_ok=True)
+    # def __post_init__(self):
+    #     super().__post_init__()
+    #     # Create diffusion-specific directories
+    #     import os
+    #     os.makedirs(os.path.join(self.experiment_dir, "diffusion"), exist_ok=True)
+    #     os.makedirs(os.path.join(self.experiment_dir, "samples"), exist_ok=True)

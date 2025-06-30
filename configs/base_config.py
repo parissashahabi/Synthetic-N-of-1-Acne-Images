@@ -30,18 +30,18 @@ class BaseConfig:
     data_dir: str = "/data/acne_dataset"
     experiment_dir: str = "./experiments"
     
-    def __post_init__(self):
-        """Create necessary directories."""
-        os.makedirs(self.experiment_dir, exist_ok=True)
-        os.makedirs(os.path.join(self.experiment_dir, "logs"), exist_ok=True)
-        os.makedirs(os.path.join(self.experiment_dir, "checkpoints"), exist_ok=True)
-        os.makedirs(os.path.join(self.experiment_dir, "results"), exist_ok=True)
+    # def __post_init__(self):
+    #     """Create necessary directories."""
+    #     os.makedirs(self.experiment_dir, exist_ok=True)
+    #     os.makedirs(os.path.join(self.experiment_dir, "logs"), exist_ok=True)
+    #     os.makedirs(os.path.join(self.experiment_dir, "checkpoints"), exist_ok=True)
+    #     os.makedirs(os.path.join(self.experiment_dir, "results"), exist_ok=True)
 
 
 @dataclass
 class DataConfig:
     """Data-specific configuration."""
-    dataset_path: str = "/kaggle/input/corrected-acne04-dataset/acne_dataset"
+    dataset_path: str = "./data/acne_dataset"
     severity_levels: Optional[List[int]] = None  # None means all levels
     apply_augmentation: bool = True
     

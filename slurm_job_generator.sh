@@ -1,5 +1,5 @@
 #!/bin/bash
-# slurm_job_examples.sh - Generate SLURM job scripts for acne diffusion training
+# slurm_job_generator.sh - Generate SLURM job scripts for acne diffusion training
 
 # Colors for output
 RED='\033[0;31m'
@@ -117,9 +117,9 @@ EOF
 
 echo -e "${YELLOW}📝 Creating SLURM job scripts...${NC}"
 
-# 1. Diffusion training - Single GPU
+# 1. Diffusion training
 create_slurm_script \
-    "job_diffusion_single.sh" \
+    "job_diffusion.sh" \
     "acne_diffusion" \
     "24:00:00" \
     "32GB" \
@@ -127,15 +127,15 @@ create_slurm_script \
     "python scripts/train_diffusion.py \\
     --data-dir ./data/acne_dataset \\
     --experiment-dir \"\$EXPERIMENT_DIR\" \\
-    --epochs 100 \\
+    --epochs 10000 \\
     --batch-size 16 \\
     --lr 1e-4 \\
     --device cuda" \
-    "Train diffusion model for 100 epochs with single GPU"
+    "Train diffusion model"
 
-# 2. Classifier training - Single GPU
+# 2. Classifier training
 create_slurm_script \
-    "job_classifier_single.sh" \
+    "job_classifier.sh" \
     "acne_classifier" \
     "12:00:00" \
     "32GB" \
@@ -143,47 +143,15 @@ create_slurm_script \
     "python scripts/train_classifier.py \\
     --data-dir ./data/acne_dataset \\
     --experiment-dir \"\$EXPERIMENT_DIR\" \\
-    --epochs 200 \\
+    --epochs 5000 \\
     --batch-size 32 \\
     --lr 3e-4 \\
     --device cuda" \
-    "Train classifier model for 200 epochs with single GPU"
+    "Train classifier model"
 
-# 3. Diffusion training - Long run (500 epochs)
+# 3. Quick test job (5 epochs)
 create_slurm_script \
-    "job_diffusion_long.sh" \
-    "acne_diffusion_long" \
-    "72:00:00" \
-    "32GB" \
-    "8" \
-    "python scripts/train_diffusion.py \\
-    --data-dir ./data/acne_dataset \\
-    --experiment-dir \"\$EXPERIMENT_DIR\" \\
-    --epochs 500 \\
-    --batch-size 16 \\
-    --lr 1e-4 \\
-    --device cuda" \
-    "Train diffusion model for 500 epochs (long run)"
-
-# 4. Classifier training - Long run (500 epochs)
-create_slurm_script \
-    "job_classifier_long.sh" \
-    "acne_classifier_long" \
-    "48:00:00" \
-    "32GB" \
-    "8" \
-    "python scripts/train_classifier.py \\
-    --data-dir ./data/acne_dataset \\
-    --experiment-dir \"\$EXPERIMENT_DIR\" \\
-    --epochs 500 \\
-    --batch-size 32 \\
-    --lr 3e-4 \\
-    --device cuda" \
-    "Train classifier model for 500 epochs (long run)"
-
-# 5. Quick test job (5 epochs)
-create_slurm_script \
-    "job_test_quick.sh" \
+    "job_test_diffusion.sh" \
     "acne_test" \
     "00:30:00" \
     "16GB" \
@@ -195,9 +163,25 @@ create_slurm_script \
     --batch-size 8 \\
     --lr 1e-4 \\
     --device cuda" \
-    "Quick test run (5 epochs) to verify setup"
+    "Quick test run to verify setup"
 
-# 6. Resume diffusion training
+# 4. Quick test job (5 epochs)
+create_slurm_script \
+    "job_test_classifier.sh" \
+    "acne_test" \
+    "00:30:00" \
+    "16GB" \
+    "4" \
+    "python scripts/train_classifier.py \\
+    --data-dir ./data/acne_dataset \\
+    --experiment-dir \"\$EXPERIMENT_DIR\" \\
+    --epochs 5 \\
+    --batch-size 8 \\
+    --lr 1e-4 \\
+    --device cuda" \
+    "Quick test run to verify setup"
+
+# 5. Resume diffusion training
 create_slurm_script \
     "job_diffusion_resume.sh" \
     "acne_diffusion_resume" \
@@ -222,7 +206,7 @@ python scripts/train_diffusion.py \\
     --device cuda" \
     "Resume diffusion training from checkpoint"
 
-# 7. Resume classifier training
+# 6. Resume classifier training
 create_slurm_script \
     "job_classifier_resume.sh" \
     "acne_classifier_resume" \
@@ -246,7 +230,7 @@ python scripts/train_classifier.py \\
     --device cuda" \
     "Resume classifier training from checkpoint"
 
-# 8. Hyperparameter search for diffusion
+# 7. Hyperparameter search for diffusion
 create_slurm_script \
     "job_diffusion_hyperparam.sh" \
     "acne_diff_hyperparam" \
@@ -278,27 +262,6 @@ for lr in \"\${LRS[@]}\"; do
     done
 done" \
     "Hyperparameter search for diffusion model"
-
-# 9. Multi-GPU training (if available)
-create_slurm_script \
-    "job_diffusion_multi.sh" \
-    "acne_diffusion_multi" \
-    "24:00:00" \
-    "64GB" \
-    "16" \
-    "# Multi-GPU training (modify if your cluster supports it)
-export CUDA_VISIBLE_DEVICES=0,1
-python scripts/train_diffusion.py \\
-    --data-dir ./data/acne_dataset \\
-    --experiment-dir \"\$EXPERIMENT_DIR\" \\
-    --epochs 100 \\
-    --batch-size 32 \\
-    --lr 1e-4 \\
-    --device cuda" \
-    "Multi-GPU diffusion training (requires 2+ GPUs)"
-
-# Change gres for multi-GPU
-sed -i 's/#SBATCH --gres=gpu:1/#SBATCH --gres=gpu:2/' job_diffusion_multi.sh
 
 echo ""
 echo -e "${GREEN}✅ All SLURM job scripts created successfully!${NC}"

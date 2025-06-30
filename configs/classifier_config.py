@@ -36,8 +36,8 @@ class ClassifierTrainingConfig(BaseConfig):
     noise_timesteps_train: int = 1000
     noise_timesteps_val: int = 1
     
-    def __post_init__(self):
-        super().__post_init__()
-        # Create classifier-specific directories
-        import os
-        os.makedirs(os.path.join(self.experiment_dir, "classifier"), exist_ok=True)
+    # def __post_init__(self):
+    #     super().__post_init__()
+    #     # Create classifier-specific directories
+    #     import os
+    #     os.makedirs(os.path.join(self.experiment_dir, "classifier"), exist_ok=True)

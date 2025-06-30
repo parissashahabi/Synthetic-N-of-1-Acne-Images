@@ -60,7 +60,7 @@ install:
 	pip install monai-generative
 	pip install "diffusers[torch]"
 	pip install scikit-learn tensorboard wandb
-	pip install hydra-core omegaconf
+	pip install hydra-core omegaconf einops
 	pip install -e .
 	@echo "✅ Installation complete!"
 
@@ -128,7 +128,7 @@ interactive-gpu-large:
 
 # Cluster setup
 setup-cluster:
-	mkdir -p logs experiments/{logs,checkpoints,results,configs}
+	mkdir -p logs experiments
 	chmod +x scripts/*.py
 	chmod +x slurm_job_examples.sh
 	@echo "📁 Created directory structure for cluster usage"
@@ -151,12 +151,20 @@ train-classifier:
 		--batch-size 32
 
 # Quick training for testing
-train-quick:
+train-quick-diffusion:
 	@echo "⚡ Quick training test (5 epochs)..."
 	PYTHONPATH="$(shell pwd):$(shell pwd)/src:$PYTHONPATH" python scripts/train_diffusion.py \
 		--data-dir ./data/acne_dataset \
-		--experiment-dir ./experiments/quick_test_$(shell date +%Y%m%d_%H%M%S) \
+		--experiment-dir ./experiments/quick_test_diffusion_$(shell date +%Y%m%d_%H%M%S) \
 		--epochs 5 \
+		--batch-size 8
+
+train-quick-classifier:
+	@echo "⚡ Quick training test (5 epochs)..."
+	PYTHONPATH="$(shell pwd):$(shell pwd)/src:$PYTHONPATH" python scripts/train_classifier.py \
+		--data-dir ./data/acne_dataset \
+		--experiment-dir ./experiments/quick_test_classifier_$(shell date +%Y%m%d_%H%M%S) \
+		--epochs 50 \
 		--batch-size 8
 
 # Resume training shortcuts
