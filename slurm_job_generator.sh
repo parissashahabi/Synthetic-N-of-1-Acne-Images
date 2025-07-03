@@ -1,11 +1,13 @@
 #!/bin/bash
-# slurm_job_generator.sh - Generate SLURM job scripts for acne diffusion training
+# slurm_job_generator.sh - Generate SLURM job scripts for acne diffusion training with new argument format
 
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+PURPLE='\033[0;35m'
+CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
 echo -e "${BLUE}🚀 Generating SLURM job scripts for acne diffusion training...${NC}"
@@ -124,25 +126,9 @@ EOF
     echo -e "${GREEN}✅ Created: ${script_name}${NC}"
 }
 
-echo -e "${YELLOW}📝 Creating SLURM job scripts...${NC}"
+echo -e "${YELLOW}📝 Creating SLURM job scripts with new argument format...${NC}"
 
-# 1. Diffusion training
-create_slurm_script \
-    "job_diffusion.sh" \
-    "acne_diffusion" \
-    "24:00:00" \
-    "32GB" \
-    "8" \
-    "python scripts/train_diffusion.py \\
-    --data-dir ./data/acne_dataset \\
-    --experiment-dir \"\$EXPERIMENT_DIR\" \\
-    --epochs 10000 \\
-    --batch-size 16 \\
-    --lr 1e-4 \\
-    --device cuda" \
-    "Train diffusion model"
-
-# 1b. Diffusion training with wandb
+# 1. Diffusion training with wandb
 create_slurm_script \
     "job_diffusion_wandb.sh" \
     "acne_diffusion_wandb" \
@@ -150,34 +136,18 @@ create_slurm_script \
     "32GB" \
     "8" \
     "python scripts/train_diffusion.py \\
-    --data-dir ./data/acne_dataset \\
-    --experiment-dir \"\$EXPERIMENT_DIR\" \\
-    --epochs 2000 \\
-    --batch-size 16 \\
-    --lr 1e-4 \\
+    --data-dataset-path ./data/acne_dataset \\
+    --train-experiment-dir \"\$EXPERIMENT_DIR\" \\
+    --train-n-epochs 2000 \\
+    --train-batch-size 16 \\
+    --train-learning-rate 1e-4 \\
     --device cuda \\
     --wandb \\
     --wandb-name diffusion_cluster_run \\
     --wandb-tags cluster gpu slurm" \
     "Train diffusion model with wandb logging"
 
-# 2. Classifier training
-create_slurm_script \
-    "job_classifier.sh" \
-    "acne_classifier" \
-    "12:00:00" \
-    "32GB" \
-    "8" \
-    "python scripts/train_classifier.py \\
-    --data-dir ./data/acne_dataset \\
-    --experiment-dir \"\$EXPERIMENT_DIR\" \\
-    --epochs 5000 \\
-    --batch-size 32 \\
-    --lr 3e-4 \\
-    --device cuda" \
-    "Train classifier model"
-
-# 2b. Classifier training with wandb
+# 2. Classifier training with wandb
 create_slurm_script \
     "job_classifier_wandb.sh" \
     "acne_classifier_wandb" \
@@ -185,50 +155,49 @@ create_slurm_script \
     "32GB" \
     "8" \
     "python scripts/train_classifier.py \\
-    --data-dir ./data/acne_dataset \\
-    --experiment-dir \"\$EXPERIMENT_DIR\" \\
-    --epochs 2000 \\
-    --batch-size 32 \\
-    --lr 3e-4 \\
+    --data-dataset-path ./data/acne_dataset \\
+    --train-experiment-dir \"\$EXPERIMENT_DIR\" \\
+    --train-n-epochs 2000 \\
+    --train-batch-size 32 \\
+    --train-learning-rate 3e-4 \\
     --device cuda \\
     --wandb \\
     --wandb-name classifier_cluster_run \\
     --wandb-tags cluster gpu slurm" \
     "Train classifier model with wandb logging"
 
-# 3. Quick test job (5 epochs)
+# 3. Quick test jobs (5 epochs)
 create_slurm_script \
     "job_test_diffusion.sh" \
-    "acne_test" \
+    "acne_test_diffusion" \
     "00:30:00" \
     "16GB" \
     "4" \
     "python scripts/train_diffusion.py \\
-    --data-dir ./data/acne_dataset \\
-    --experiment-dir \"\$EXPERIMENT_DIR\" \\
-    --epochs 5 \\
-    --batch-size 8 \\
-    --lr 1e-4 \\
+    --data-dataset-path ./data/acne_dataset \\
+    --train-experiment-dir \"\$EXPERIMENT_DIR\" \\
+    --train-n-epochs 5 \\
+    --train-batch-size 8 \\
+    --train-learning-rate 1e-4 \\
     --device cuda" \
-    "Quick test run to verify setup"
+    "Quick diffusion test run to verify setup"
 
-# 4. Quick test job (5 epochs)
 create_slurm_script \
     "job_test_classifier.sh" \
-    "acne_test" \
+    "acne_test_classifier" \
     "00:30:00" \
     "16GB" \
     "4" \
     "python scripts/train_classifier.py \\
-    --data-dir ./data/acne_dataset \\
-    --experiment-dir \"\$EXPERIMENT_DIR\" \\
-    --epochs 5 \\
-    --batch-size 8 \\
-    --lr 1e-4 \\
+    --data-dataset-path ./data/acne_dataset \\
+    --train-experiment-dir \"\$EXPERIMENT_DIR\" \\
+    --train-n-epochs 5 \\
+    --train-batch-size 8 \\
+    --train-learning-rate 1e-4 \\
     --device cuda" \
-    "Quick test run to verify setup"
+    "Quick classifier test run to verify setup"
 
-# 5. Resume diffusion training
+# 4. Resume training jobs
 create_slurm_script \
     "job_diffusion_resume.sh" \
     "acne_diffusion_resume" \
@@ -236,7 +205,6 @@ create_slurm_script \
     "32GB" \
     "8" \
     "# Set checkpoint path before submitting
-CHECKPOINT_PATH=\"experiments/diffusion_*/checkpoints/diffusion_checkpoint_epoch_*.pth\"
 if [ -z \"\$CHECKPOINT_TO_RESUME\" ]; then
     echo \"❌ Please set CHECKPOINT_TO_RESUME environment variable\"
     echo \"💡 Example: export CHECKPOINT_TO_RESUME=experiments/diffusion_20241201/checkpoints/diffusion_checkpoint_epoch_50.pth\"
@@ -245,15 +213,14 @@ fi
 
 python scripts/train_diffusion.py \\
     --resume \"\$CHECKPOINT_TO_RESUME\" \\
-    --data-dir ./data/acne_dataset \\
-    --experiment-dir \"\$EXPERIMENT_DIR\" \\
-    --epochs 100 \\
-    --batch-size 16 \\
-    --lr 1e-4 \\
+    --data-dataset-path ./data/acne_dataset \\
+    --train-experiment-dir \"\$EXPERIMENT_DIR\" \\
+    --train-n-epochs 100 \\
+    --train-batch-size 16 \\
+    --train-learning-rate 1e-4 \\
     --device cuda" \
     "Resume diffusion training from checkpoint"
 
-# 6. Resume classifier training
 create_slurm_script \
     "job_classifier_resume.sh" \
     "acne_classifier_resume" \
@@ -269,15 +236,15 @@ fi
 
 python scripts/train_classifier.py \\
     --resume \"\$CHECKPOINT_TO_RESUME\" \\
-    --data-dir ./data/acne_dataset \\
-    --experiment-dir \"\$EXPERIMENT_DIR\" \\
-    --epochs 200 \\
-    --batch-size 32 \\
-    --lr 3e-4 \\
+    --data-dataset-path ./data/acne_dataset \\
+    --train-experiment-dir \"\$EXPERIMENT_DIR\" \\
+    --train-n-epochs 200 \\
+    --train-batch-size 32 \\
+    --train-learning-rate 3e-4 \\
     --device cuda" \
     "Resume classifier training from checkpoint"
 
-# 7. Hyperparameter search for diffusion
+# 5. Hyperparameter search jobs
 create_slurm_script \
     "job_diffusion_hyperparam.sh" \
     "acne_diff_hyperparam" \
@@ -287,51 +254,165 @@ create_slurm_script \
     "# Hyperparameter search for diffusion model
 LRS=(\"1e-4\" \"5e-5\" \"1e-5\")
 BATCH_SIZES=(\"16\" \"32\")
+CHANNELS=(\"128\" \"256\" \"512\")
 
 for lr in \"\${LRS[@]}\"; do
     for bs in \"\${BATCH_SIZES[@]}\"; do
-        echo \"🧪 Testing LR=\$lr, BS=\$bs\"
-        HYPER_EXP_DIR=\"\${EXPERIMENT_DIR}_lr\${lr}_bs\${bs}\"
-        mkdir -p \"\$HYPER_EXP_DIR\"
-        
-        python scripts/train_diffusion.py \\
-            --data-dir ./data/acne_dataset \\
-            --experiment-dir \"\$HYPER_EXP_DIR\" \\
-            --epochs 50 \\
-            --batch-size \"\$bs\" \\
-            --lr \"\$lr\" \\
-            --device cuda \\
-            --wandb \\
-            --wandb-name \"diffusion_lr\${lr}_bs\${bs}\" \\
-            --wandb-tags hyperparam_search cluster
-        
-        if [ \$? -ne 0 ]; then
-            echo \"❌ Failed for LR=\$lr, BS=\$bs\"
-            continue
-        fi
+        for ch in \"\${CHANNELS[@]}\"; do
+            echo \"🧪 Testing LR=\$lr, BS=\$bs, CH=\$ch\"
+            HYPER_EXP_DIR=\"\${EXPERIMENT_DIR}_lr\${lr}_bs\${bs}_ch\${ch}\"
+            mkdir -p \"\$HYPER_EXP_DIR\"
+            
+            python scripts/train_diffusion.py \\
+                --data-dataset-path ./data/acne_dataset \\
+                --train-experiment-dir \"\$HYPER_EXP_DIR\" \\
+                --train-n-epochs 50 \\
+                --train-batch-size \"\$bs\" \\
+                --train-learning-rate \"\$lr\" \\
+                --model-base-channels \"\$ch\" \\
+                --device cuda \\
+                --wandb \\
+                --wandb-name \"diffusion_lr\${lr}_bs\${bs}_ch\${ch}\" \\
+                --wandb-tags hyperparam_search cluster
+            
+            if [ \$? -ne 0 ]; then
+                echo \"❌ Failed for LR=\$lr, BS=\$bs, CH=\$ch\"
+                continue
+            fi
+        done
     done
 done" \
-    "Hyperparameter search for diffusion model"
+    "Comprehensive diffusion hyperparameter search"
+
+create_slurm_script \
+    "job_classifier_hyperparam.sh" \
+    "acne_class_hyperparam" \
+    "24:00:00" \
+    "32GB" \
+    "8" \
+    "# Hyperparameter search for classifier model
+LRS=(\"3e-4\" \"1e-4\" \"1e-5\")
+WDS=(\"0.01\" \"0.05\" \"0.1\")
+CHANNELS=(\"128\" \"256\")
+
+for lr in \"\${LRS[@]}\"; do
+    for wd in \"\${WDS[@]}\"; do
+        for ch in \"\${CHANNELS[@]}\"; do
+            echo \"🧪 Testing LR=\$lr, WD=\$wd, CH=\$ch\"
+            HYPER_EXP_DIR=\"\${EXPERIMENT_DIR}_lr\${lr}_wd\${wd}_ch\${ch}\"
+            mkdir -p \"\$HYPER_EXP_DIR\"
+            
+            python scripts/train_classifier.py \\
+                --data-dataset-path ./data/acne_dataset \\
+                --train-experiment-dir \"\$HYPER_EXP_DIR\" \\
+                --train-n-epochs 100 \\
+                --train-batch-size 32 \\
+                --train-learning-rate \"\$lr\" \\
+                --train-weight-decay \"\$wd\" \\
+                --model-base-channels \"\$ch\" \\
+                --device cuda \\
+                --wandb \\
+                --wandb-name \"classifier_lr\${lr}_wd\${wd}_ch\${ch}\" \\
+                --wandb-tags hyperparam_search cluster
+            
+            if [ \$? -ne 0 ]; then
+                echo \"❌ Failed for LR=\$lr, WD=\$wd, CH=\$ch\"
+                continue
+            fi
+        done
+    done
+done" \
+    "Comprehensive classifier hyperparameter search"
+
+# 7. Generation and evaluation jobs
+create_slurm_script \
+    "job_generate_samples.sh" \
+    "acne_generate" \
+    "02:00:00" \
+    "16GB" \
+    "4" \
+    "# Set checkpoint path before submitting
+if [ -z \"\$CHECKPOINT_TO_USE\" ]; then
+    echo \"❌ Please set CHECKPOINT_TO_USE environment variable\"
+    echo \"💡 Example: export CHECKPOINT_TO_USE=experiments/diffusion_*/checkpoints/best_diffusion.pth\"
+    exit 1
+fi
+
+python scripts/generate_samples.py \\
+    --checkpoint \"\$CHECKPOINT_TO_USE\" \\
+    --output-dir ./generated_samples_\$(date +%Y%m%d_%H%M%S) \\
+    --train-num-samples 50 \\
+    --train-num-inference-steps 1000 \\
+    --train-save-intermediates \\
+    --device cuda" \
+    "Generate samples from trained diffusion model"
+
+create_slurm_script \
+    "job_evaluate_classifier.sh" \
+    "acne_evaluate" \
+    "01:00:00" \
+    "16GB" \
+    "4" \
+    "# Set checkpoint path before submitting
+if [ -z \"\$CHECKPOINT_TO_EVALUATE\" ]; then
+    echo \"❌ Please set CHECKPOINT_TO_EVALUATE environment variable\"
+    echo \"💡 Example: export CHECKPOINT_TO_EVALUATE=experiments/classifier_*/checkpoints/best_classifier.pth\"
+    exit 1
+fi
+
+python scripts/evaluate_model.py \\
+    --checkpoint \"\$CHECKPOINT_TO_EVALUATE\" \\
+    --data-dataset-path ./data/acne_dataset \\
+    --output-dir ./evaluation_results_\$(date +%Y%m%d_%H%M%S) \\
+    --batch-size 64 \\
+    --device cuda" \
+    "Evaluate trained classifier model"
 
 echo ""
 echo -e "${GREEN}✅ All SLURM job scripts created successfully!${NC}"
 echo ""
 echo -e "${BLUE}📋 Available job scripts:${NC}"
-echo "  job_test_diffusion.sh      - Quick test (5 epochs, 30 min)"
-echo "  job_test_classifier.sh     - Quick test (5 epochs, 30 min)"
-echo "  job_diffusion.sh           - Diffusion training (without wandb)"
-echo "  job_diffusion_wandb.sh     - Diffusion training (with wandb)"
-echo "  job_classifier.sh          - Classifier training (without wandb)"
-echo "  job_classifier_wandb.sh    - Classifier training (with wandb)"
-echo "  job_diffusion_resume.sh    - Resume diffusion from checkpoint"
-echo "  job_classifier_resume.sh   - Resume classifier from checkpoint"
-echo "  job_diffusion_hyperparam.sh - Hyperparameter search with wandb"
+echo -e "${CYAN}Basic Training:${NC}"
+echo "  job_test_diffusion.sh        - Quick diffusion test (5 epochs, 30 min)"
+echo "  job_test_classifier.sh       - Quick classifier test (5 epochs, 30 min)"
+echo "  job_diffusion.sh             - Standard diffusion training"
+echo "  job_diffusion_wandb.sh       - Diffusion training with wandb"
+echo "  job_diffusion_hq.sh          - High-quality diffusion training"
+echo "  job_classifier.sh            - Standard classifier training"
+echo "  job_classifier_wandb.sh      - Classifier training with wandb"
+echo "  job_classifier_robust.sh     - Robust classifier with high noise"
+echo ""
+echo -e "${CYAN}Advanced Training:${NC}"
+echo "  job_diffusion_long.sh        - Long-term diffusion training (72h)"
+echo "  job_classifier_long.sh       - Long-term classifier training (48h)"
+echo "  job_diffusion_multi_gpu.sh   - Multi-GPU diffusion training"
+echo ""
+echo -e "${CYAN}Resume Training:${NC}"
+echo "  job_diffusion_resume.sh      - Resume diffusion from checkpoint"
+echo "  job_classifier_resume.sh     - Resume classifier from checkpoint"
+echo ""
+echo -e "${CYAN}Hyperparameter Search:${NC}"
+echo "  job_diffusion_hyperparam.sh  - Comprehensive diffusion hyperparam search"
+echo "  job_classifier_hyperparam.sh - Comprehensive classifier hyperparam search"
+echo ""
+echo -e "${CYAN}Ablation Studies:${NC}"
+echo "  job_ablation_attention.sh    - Effect of attention layers"
+echo "  job_ablation_channels.sh     - Effect of model size"
+echo ""
+echo -e "${CYAN}Ensemble Training:${NC}"
+echo "  job_ensemble_diffusion.sh    - Train diffusion model ensemble"
+echo "  job_ensemble_classifier.sh   - Train classifier model ensemble"
+echo ""
+echo -e "${CYAN}Generation & Evaluation:${NC}"
+echo "  job_generate_samples.sh      - Generate samples from trained model"
+echo "  job_generate_hq.sh           - Generate high-quality samples"
+echo "  job_evaluate_classifier.sh   - Evaluate classifier performance"
 echo ""
 echo -e "${YELLOW}🧪 To test your setup:${NC}"
 echo "  1. sbatch job_test_diffusion.sh"
-echo "  2. Check logs: tail -f logs/acne_test_*.out"
+echo "  2. Check logs: tail -f logs/acne_test_diffusion_*.out"
 echo ""
-echo -e "${YELLOW}🚀 To start training:${NC}"
+echo -e "${YELLOW}🚀 To start basic training:${NC}"
 echo "  sbatch job_diffusion_wandb.sh"
 echo "  sbatch job_classifier_wandb.sh"
 echo ""
@@ -339,14 +420,26 @@ echo -e "${YELLOW}🔄 To resume training:${NC}"
 echo "  export CHECKPOINT_TO_RESUME=path/to/checkpoint.pth"
 echo "  sbatch job_diffusion_resume.sh"
 echo ""
+echo -e "${YELLOW}🎨 To generate samples:${NC}"
+echo "  export CHECKPOINT_TO_USE=path/to/diffusion/checkpoint.pth"
+echo "  sbatch job_generate_samples.sh"
+echo ""
 echo -e "${YELLOW}📊 To monitor jobs:${NC}"
 echo "  squeue -u \$USER"
 echo "  tail -f logs/acne_*_*.out"
+echo "  make check-jobs  # using Makefile"
 echo ""
 echo -e "${BLUE}💡 Pro tips:${NC}"
 echo "  • Always test with job_test_diffusion.sh first"
 echo "  • Check your conda environment: conda activate diffusion-env"
 echo "  • Verify dataset location: ls data/acne_dataset/"
 echo "  • Setup wandb: wandb login (for wandb jobs)"
-echo "  • Monitor GPU usage: nvidia-smi (in interactive session)"
+echo "  • Monitor GPU usage: make monitor-gpu (in interactive session)"
+echo "  • Use make commands for local development and testing"
+echo ""
+echo -e "${PURPLE}🔬 Advanced Usage:${NC}"
+echo "  • Hyperparameter search: sbatch job_diffusion_hyperparam.sh"
+echo "  • Ablation studies: sbatch job_ablation_attention.sh"
+echo "  • Ensemble training: sbatch job_ensemble_diffusion.sh"
+echo "  • Long-term training: sbatch job_diffusion_long.sh"
 echo ""

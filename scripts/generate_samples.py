@@ -17,6 +17,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
 from models.diffusion import DiffusionModel
 from configs.diffusion_config import DiffusionModelConfig, DiffusionTrainingConfig
 from utils.checkpoints import CheckpointManager
+from utils.config_parser import add_config_args, update_config_from_args
 
 
 def display_results(image, intermediates, config, save_dir, title_prefix, generation_time):
@@ -131,18 +132,16 @@ def run_inference(model, config, device, save_dir=None, title_prefix="Generated"
 
 def main():
     parser = argparse.ArgumentParser(description='Generate samples with diffusion model')
+    
+    # Add all config arguments automatically
+    add_config_args(parser, DiffusionModelConfig, prefix="model-")
+    add_config_args(parser, DiffusionTrainingConfig, prefix="train-")
+    
+    # Keep existing manual arguments
     parser.add_argument('--checkpoint', type=str, required=True,
                        help='Path to model checkpoint')
     parser.add_argument('--output-dir', type=str, default='./generated_samples',
                        help='Output directory for generated samples')
-    parser.add_argument('--num-samples', type=int, default=1,
-                       help='Number of samples to generate')
-    parser.add_argument('--num-steps', type=int, default=1000,
-                       help='Number of inference steps')
-    parser.add_argument('--img-size', type=int, default=128,
-                       help='Image size')
-    parser.add_argument('--save-process', action='store_true',
-                       help='Save intermediate denoising steps')
     parser.add_argument('--device', type=str, default='auto', 
                        choices=['auto', 'cuda', 'cpu'], help='Device to use')
     
@@ -164,10 +163,8 @@ def main():
     training_config = DiffusionTrainingConfig()
     
     # Override with command line arguments
-    training_config.num_samples = args.num_samples
-    training_config.num_inference_steps = args.num_steps
-    training_config.img_size = args.img_size
-    training_config.save_intermediates = args.save_process
+    model_config = update_config_from_args(model_config, args, prefix="model_")
+    training_config = update_config_from_args(training_config, args, prefix="train_")
     
     # Create model
     print("🏗️ Creating diffusion model...")

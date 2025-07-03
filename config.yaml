@@ -1,0 +1,78 @@
+# Simple Configuration for Acne Diffusion Project
+
+# Project Settings
+project:
+  name: "acne-diffusion"
+  data_dir: "./data/acne_dataset"
+  experiments_dir: "./experiments"
+  logs_dir: "./logs"
+  conda_env: "diffusion-env"
+
+# Cluster Settings
+cluster:
+  account: "sci-lippert"
+  partition: "gpu"
+  partition_interactive: "gpu-interactive"
+  email_domain: "utah.edu"
+
+# Wandb Settings (used for all jobs)
+wandb:
+  project: "acne-diffusion"
+  entity: null
+  tags: ["cluster"]
+
+# Default Training Parameters
+diffusion:
+  epochs: 100
+  batch_size: 16
+  learning_rate: 1e-4
+  base_channels: 256
+  quick_epochs: 5
+
+classifier:
+  epochs: 2000
+  batch_size: 32
+  learning_rate: 3e-4
+  weight_decay: 0.01
+  base_channels: 128
+  quick_epochs: 50
+
+# Generation Settings
+generation:
+  num_samples: 10
+  num_inference_steps: 1000
+  save_intermediates: true
+
+# Cluster Resources
+resources:
+  test:
+    time: "00:30:00"
+    memory: "16GB"
+    cpus: 4
+  
+  train:
+    time: "24:00:00"
+    memory: "32GB"
+    cpus: 8
+  
+  generate:
+    time: "02:00:00"
+    memory: "16GB"
+    cpus: 4
+  
+  hypersearch:
+    time: "48:00:00"
+    memory: "32GB"
+    cpus: 8
+
+# Hyperparameter Search
+hypersearch:
+  diffusion:
+    learning_rates: [1e-4, 5e-5, 1e-5]
+    batch_sizes: [16, 32]
+    epochs: 50
+  
+  classifier:
+    learning_rates: [3e-4, 1e-4, 1e-5]
+    weight_decays: [0.01, 0.05, 0.1]
+    epochs: 100

@@ -18,6 +18,7 @@ from training.diffusion_trainer import DiffusionTrainer
 from configs.diffusion_config import DiffusionModelConfig, DiffusionTrainingConfig
 from configs.base_config import DataConfig
 from utils.visualization import show_batch
+from utils.config_parser import add_config_args, update_config_from_args
 
 
 def setup_data(config: DiffusionTrainingConfig, data_config: DataConfig):
@@ -92,14 +93,15 @@ def setup_data(config: DiffusionTrainingConfig, data_config: DataConfig):
 
 def main():
     parser = argparse.ArgumentParser(description='Train diffusion model')
+    
+    # Add all config arguments automatically
+    add_config_args(parser, DiffusionModelConfig, prefix="model-")
+    add_config_args(parser, DiffusionTrainingConfig, prefix="train-")
+    add_config_args(parser, DataConfig, prefix="data-")
+    
+    # Keep existing manual arguments for compatibility
     parser.add_argument('--config', type=str, help='Path to config file')
     parser.add_argument('--resume', type=str, help='Path to checkpoint to resume from')
-    parser.add_argument('--data-dir', type=str, help='Path to dataset')
-    parser.add_argument('--experiment-dir', type=str, default='./experiments', 
-                       help='Experiment directory')
-    parser.add_argument('--epochs', type=int, help='Number of epochs')
-    parser.add_argument('--batch-size', type=int, help='Batch size')
-    parser.add_argument('--lr', type=float, help='Learning rate')
     parser.add_argument('--device', type=str, default='auto', 
                        choices=['auto', 'cuda', 'cpu'], help='Device to use')
     
@@ -130,16 +132,9 @@ def main():
     data_config = DataConfig()
     
     # Override config with command line arguments
-    if args.data_dir:
-        data_config.dataset_path = args.data_dir
-    if args.experiment_dir:
-        training_config.experiment_dir = args.experiment_dir
-    if args.epochs:
-        training_config.n_epochs = args.epochs
-    if args.batch_size:
-        training_config.batch_size = args.batch_size
-    if args.lr:
-        training_config.learning_rate = args.lr
+    model_config = update_config_from_args(model_config, args, prefix="model_")
+    training_config = update_config_from_args(training_config, args, prefix="train_")
+    data_config = update_config_from_args(data_config, args, prefix="data_")
     
     # Wandb configuration
     if args.wandb:

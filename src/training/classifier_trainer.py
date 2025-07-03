@@ -27,6 +27,8 @@ class ClassifierTrainer:
         self.model = model
         self.config = config
         self.device = device
+
+        print(f"📦 Initializing Classifier Trainer with config: {config}")
         
         # Setup optimizer
         self.optimizer = torch.optim.AdamW(
