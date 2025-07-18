@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Evaluation script for trained models.
+Evaluation script for trained models - reads configuration from config.yaml only.
 """
 import os
 import sys
@@ -18,9 +18,8 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
 from data.dataset import AcneDataset
 from data.transforms import create_transforms
 from models.classifier import ClassifierModel
-from configs.classifier_config import ClassifierModelConfig
-from configs.base_config import DataConfig
 from utils.checkpoints import CheckpointManager
+from utils.config_reader import ConfigReader
 
 
 def evaluate_classifier(model, test_loader, device, num_classes=4):
@@ -159,37 +158,52 @@ def plot_probability_distribution(probabilities, labels, class_names, save_path=
 
 def main():
     parser = argparse.ArgumentParser(description='Evaluate trained classifier')
+    
+    # Essential arguments only
+    parser.add_argument('--config', type=str, default='config.yaml',
+                       help='Path to config file (default: config.yaml)')
     parser.add_argument('--checkpoint', type=str, required=True,
                        help='Path to classifier checkpoint')
-    parser.add_argument('--data-dir', type=str, required=True,
-                       help='Path to dataset')
     parser.add_argument('--output-dir', type=str, default='./evaluation_results',
                        help='Output directory for evaluation results')
-    parser.add_argument('--batch-size', type=int, default=32,
-                       help='Batch size for evaluation')
-    parser.add_argument('--test-split', type=float, default=0.2,
-                       help='Fraction of data to use for testing')
-    parser.add_argument('--device', type=str, default='auto', 
-                       choices=['auto', 'cuda', 'cpu'], help='Device to use')
     
     args = parser.parse_args()
     
+    # Load configuration from YAML
+    print(f"📖 Loading configuration from: {args.config}")
+    try:
+        config_reader = ConfigReader(args.config)
+    except FileNotFoundError as e:
+        print(f"❌ {e}")
+        return 1
+    
+    # Get configurations
+    model_config = config_reader.get_classifier_model_config()
+    data_config = config_reader.get_data_config()
+    eval_config = config_reader.get_evaluation_config()
+    
     # Setup device
-    if args.device == 'auto':
+    device_setting = eval_config.get('device', 'auto')
+    if device_setting == 'auto':
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     else:
-        device = torch.device(args.device)
+        device = torch.device(device_setting)
     
     print(f"🖥️ Using device: {device}")
     
     # Create output directory
     os.makedirs(args.output_dir, exist_ok=True)
     
+    # Print configuration summary
+    print(f"\n📋 Evaluation Configuration:")
+    print(f"   Checkpoint: {args.checkpoint}")
+    print(f"   Data directory: {data_config.dataset_path}")
+    print(f"   Output directory: {args.output_dir}")
+    print(f"   Batch size: {eval_config.get('batch_size', 32)}")
+    print(f"   Test split: {eval_config.get('test_split', 0.2)}")
+    
     # Setup data
     print("📁 Setting up test data...")
-    
-    data_config = DataConfig()
-    data_config.dataset_path = args.data_dir
     
     # Create transforms (no augmentation for evaluation)
     _, test_transforms = create_transforms(img_size=128, apply_augmentation=False)
@@ -202,7 +216,8 @@ def main():
     )
     
     # Split data (use the test portion)
-    train_size = int((1 - args.test_split) * len(full_dataset))
+    test_split = eval_config.get('test_split', 0.2)
+    train_size = int((1 - test_split) * len(full_dataset))
     test_size = len(full_dataset) - train_size
     
     _, test_dataset = random_split(
@@ -212,9 +227,10 @@ def main():
     )
     
     # Create test loader
+    batch_size = eval_config.get('batch_size', 32)
     test_loader = DataLoader(
         test_dataset, 
-        batch_size=args.batch_size, 
+        batch_size=batch_size, 
         shuffle=False, 
         num_workers=4, 
         pin_memory=torch.cuda.is_available()
@@ -226,7 +242,6 @@ def main():
     # Load model
     print("🏗️ Loading classifier model...")
     
-    model_config = ClassifierModelConfig()
     model = ClassifierModel(model_config)
     model.to(device)
     
@@ -242,7 +257,7 @@ def main():
     
     if checkpoint is None:
         print("❌ Failed to load checkpoint")
-        return
+        return 1
     
     # Run evaluation
     print("🚀 Starting evaluation...")
@@ -302,7 +317,9 @@ def main():
     
     print(f"\n✅ Evaluation completed!")
     print(f"📁 All results saved to: {args.output_dir}")
+    
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

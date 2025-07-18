@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Generate essential SLURM job scripts from config.yaml
+Generate essential SLURM job scripts from config.yaml - scripts read config.yaml directly
 """
 import sys
 import os
@@ -95,7 +95,7 @@ def main():
         print("❌ config.yaml not found")
         return 1
     
-    print("📝 Generating SLURM job scripts...")
+    print("📝 Generating SLURM job scripts that read from config.yaml...")
     
     # Create logs directory
     os.makedirs(config.get('project.logs_dir'), exist_ok=True)
@@ -107,11 +107,7 @@ def main():
         "job_test.sh",
         "acne_test",
         "test",
-        f'''python scripts/train_diffusion.py \\
-    --data-dataset-path {config.get('project.data_dir')} \\
-    --train-experiment-dir "$EXPERIMENT_DIR" \\
-    --train-n-epochs {config.get('diffusion.quick_epochs')} \\
-    --train-batch-size 8''',
+        f'''python scripts/train_diffusion.py --config config.yaml --quick-test''',
         "Quick test run",
         config
     )
@@ -122,16 +118,7 @@ def main():
         "job_diffusion.sh",
         "acne_diffusion",
         "train",
-        f'''python scripts/train_diffusion.py \\
-    --data-dataset-path {config.get('project.data_dir')} \\
-    --train-experiment-dir "$EXPERIMENT_DIR" \\
-    --train-n-epochs {config.get('diffusion.epochs')} \\
-    --train-batch-size {config.get('diffusion.batch_size')} \\
-    --train-learning-rate {config.get('diffusion.learning_rate')} \\
-    --wandb \\
-    --wandb-project {config.get('wandb.project')} \\
-    --wandb-name diffusion_cluster \\
-    --wandb-tags cluster''',
+        f'''python scripts/train_diffusion.py --config config.yaml --enable-wandb --wandb-name diffusion_cluster''',
         "Train diffusion model",
         config
     )
@@ -142,22 +129,35 @@ def main():
         "job_classifier.sh",
         "acne_classifier",
         "train",
-        f'''python scripts/train_classifier.py \\
-    --data-dataset-path {config.get('project.data_dir')} \\
-    --train-experiment-dir "$EXPERIMENT_DIR" \\
-    --train-n-epochs {config.get('classifier.epochs')} \\
-    --train-batch-size {config.get('classifier.batch_size')} \\
-    --train-learning-rate {config.get('classifier.learning_rate')} \\
-    --wandb \\
-    --wandb-project {config.get('wandb.project')} \\
-    --wandb-name classifier_cluster \\
-    --wandb-tags cluster''',
+        f'''python scripts/train_classifier.py --config config.yaml --enable-wandb --wandb-name classifier_cluster''',
         "Train classifier model",
         config
     )
     scripts.append("job_classifier.sh")
     
-    # 4. Resume diffusion
+    # 4. Diffusion quick test
+    create_slurm_script(
+        "job_diffusion_quick.sh",
+        "acne_diffusion_quick",
+        "test",
+        f'''python scripts/train_diffusion.py --config config.yaml --quick-test''',
+        "Quick diffusion test",
+        config
+    )
+    scripts.append("job_diffusion_quick.sh")
+    
+    # 5. Classifier quick test
+    create_slurm_script(
+        "job_classifier_quick.sh",
+        "acne_classifier_quick",
+        "test",
+        f'''python scripts/train_classifier.py --config config.yaml --quick-test''',
+        "Quick classifier test",
+        config
+    )
+    scripts.append("job_classifier_quick.sh")
+    
+    # 6. Resume diffusion
     create_slurm_script(
         "job_resume_diffusion.sh",
         "acne_resume_diffusion",
@@ -168,22 +168,13 @@ def main():
     exit 1
 fi
 
-python scripts/train_diffusion.py \\
-    --resume "$CHECKPOINT" \\
-    --data-dataset-path {config.get('project.data_dir')} \\
-    --train-experiment-dir "$EXPERIMENT_DIR" \\
-    --train-n-epochs {config.get('diffusion.epochs')} \\
-    --train-batch-size {config.get('diffusion.batch_size')} \\
-    --wandb \\
-    --wandb-project {config.get('wandb.project')} \\
-    --wandb-name diffusion_resumed \\
-    --wandb-tags cluster resumed''',
+python scripts/train_diffusion.py --config config.yaml --resume "$CHECKPOINT" --enable-wandb --wandb-name diffusion_resumed''',
         "Resume diffusion training",
         config
     )
     scripts.append("job_resume_diffusion.sh")
     
-    # 5. Resume classifier
+    # 7. Resume classifier
     create_slurm_script(
         "job_resume_classifier.sh",
         "acne_resume_classifier",
@@ -194,22 +185,13 @@ python scripts/train_diffusion.py \\
     exit 1
 fi
 
-python scripts/train_classifier.py \\
-    --resume "$CHECKPOINT" \\
-    --data-dataset-path {config.get('project.data_dir')} \\
-    --train-experiment-dir "$EXPERIMENT_DIR" \\
-    --train-n-epochs {config.get('classifier.epochs')} \\
-    --train-batch-size {config.get('classifier.batch_size')} \\
-    --wandb \\
-    --wandb-project {config.get('wandb.project')} \\
-    --wandb-name classifier_resumed \\
-    --wandb-tags cluster resumed''',
+python scripts/train_classifier.py --config config.yaml --resume "$CHECKPOINT" --enable-wandb --wandb-name classifier_resumed''',
         "Resume classifier training",
         config
     )
     scripts.append("job_resume_classifier.sh")
     
-    # 6. Generate samples
+    # 8. Generate samples
     create_slurm_script(
         "job_generate.sh",
         "acne_generate",
@@ -220,18 +202,13 @@ python scripts/train_classifier.py \\
     exit 1
 fi
 
-python scripts/generate_samples.py \\
-    --checkpoint "$CHECKPOINT" \\
-    --output-dir ./generated_$(date +%Y%m%d_%H%M%S) \\
-    --train-num-samples {config.get('generation.num_samples')} \\
-    --train-num-inference-steps {config.get('generation.num_inference_steps')} \\
-    --train-save-intermediates''',
+python scripts/generate_samples.py --config config.yaml --checkpoint "$CHECKPOINT" --output-dir ./generated_$(date +%Y%m%d_%H%M%S)''',
         "Generate samples",
         config
     )
     scripts.append("job_generate.sh")
     
-    # 7. Evaluate classifier
+    # 9. Evaluate classifier
     create_slurm_script(
         "job_evaluate.sh",
         "acne_evaluate",
@@ -242,16 +219,13 @@ python scripts/generate_samples.py \\
     exit 1
 fi
 
-python scripts/evaluate_model.py \\
-    --checkpoint "$CHECKPOINT" \\
-    --data-dataset-path {config.get('project.data_dir')} \\
-    --output-dir ./evaluation_$(date +%Y%m%d_%H%M%S)''',
+python scripts/evaluate_model.py --config config.yaml --checkpoint "$CHECKPOINT" --output-dir ./evaluation_$(date +%Y%m%d_%H%M%S)''',
         "Evaluate classifier",
         config
     )
     scripts.append("job_evaluate.sh")
     
-    # 8. Hyperparameter search
+    # 10. Hyperparameter search
     create_slurm_script(
         "job_hypersearch.sh",
         "acne_hypersearch",
@@ -259,24 +233,37 @@ python scripts/evaluate_model.py \\
         f'''# Hyperparameter search for both models
 echo "🧪 Starting hyperparameter search..."
 
+# Note: This script will modify config.yaml temporarily for each hyperparameter combination
+# Create backup of original config
+cp config.yaml config_backup.yaml
+
 # Diffusion hyperparameter search
 echo "🔥 Diffusion hyperparameter search..."
 for lr in {' '.join([str(lr) for lr in config.get('hypersearch.diffusion.learning_rates')])}; do
     for bs in {' '.join([str(bs) for bs in config.get('hypersearch.diffusion.batch_sizes')])}; do
-        echo "Testing diffusion LR=$lr, BS=$bs"
-        EXP_DIR="{config.get('project.experiments_dir')}/hypersearch_diffusion_lr${{lr}}_bs${{bs}}_$(date +%Y%m%d_%H%M%S)"
-        mkdir -p "$EXP_DIR"
-        
-        python scripts/train_diffusion.py \\
-            --data-dataset-path {config.get('project.data_dir')} \\
-            --train-experiment-dir "$EXP_DIR" \\
-            --train-n-epochs {config.get('hypersearch.diffusion.epochs')} \\
-            --train-batch-size $bs \\
-            --train-learning-rate $lr \\
-            --wandb \\
-            --wandb-project {config.get('wandb.project')} \\
-            --wandb-name "diffusion_lr${{lr}}_bs${{bs}}" \\
-            --wandb-tags cluster hypersearch diffusion
+        for ch in {' '.join([str(ch) for ch in config.get('hypersearch.diffusion.base_channels', [256])])}; do
+            echo "Testing diffusion LR=$lr, BS=$bs, CH=$ch"
+            
+            # Create temporary config with modified parameters
+            python3 -c "
+import yaml
+with open('config.yaml', 'r') as f:
+    config = yaml.safe_load(f)
+config['diffusion']['training']['learning_rate'] = $lr
+config['diffusion']['training']['batch_size'] = $bs
+config['diffusion']['training']['n_epochs'] = {config.get('hypersearch.diffusion.epochs', 50)}
+config['diffusion']['model']['base_channels'] = $ch
+with open('config_temp.yaml', 'w') as f:
+    yaml.dump(config, f)
+"
+            
+            python scripts/train_diffusion.py --config config_temp.yaml --enable-wandb --wandb-name "diffusion_lr${{lr}}_bs${{bs}}_ch${{ch}}"
+            
+            if [ $? -ne 0 ]; then
+                echo "❌ Failed for LR=$lr, BS=$bs, CH=$ch"
+                continue
+            fi
+        done
     done
 done
 
@@ -284,23 +271,37 @@ done
 echo "🎓 Classifier hyperparameter search..."
 for lr in {' '.join([str(lr) for lr in config.get('hypersearch.classifier.learning_rates')])}; do
     for wd in {' '.join([str(wd) for wd in config.get('hypersearch.classifier.weight_decays')])}; do
-        echo "Testing classifier LR=$lr, WD=$wd"
-        EXP_DIR="{config.get('project.experiments_dir')}/hypersearch_classifier_lr${{lr}}_wd${{wd}}_$(date +%Y%m%d_%H%M%S)"
-        mkdir -p "$EXP_DIR"
-        
-        python scripts/train_classifier.py \\
-            --data-dataset-path {config.get('project.data_dir')} \\
-            --train-experiment-dir "$EXP_DIR" \\
-            --train-n-epochs {config.get('hypersearch.classifier.epochs')} \\
-            --train-batch-size {config.get('classifier.batch_size')} \\
-            --train-learning-rate $lr \\
-            --train-weight-decay $wd \\
-            --wandb \\
-            --wandb-project {config.get('wandb.project')} \\
-            --wandb-name "classifier_lr${{lr}}_wd${{wd}}" \\
-            --wandb-tags cluster hypersearch classifier
+        for ch in {' '.join([str(ch) for ch in config.get('hypersearch.classifier.base_channels', [128])])}; do
+            echo "Testing classifier LR=$lr, WD=$wd, CH=$ch"
+            
+            # Create temporary config with modified parameters
+            python3 -c "
+import yaml
+with open('config.yaml', 'r') as f:
+    config = yaml.safe_load(f)
+config['classifier']['training']['learning_rate'] = $lr
+config['classifier']['training']['weight_decay'] = $wd
+config['classifier']['training']['n_epochs'] = {config.get('hypersearch.classifier.epochs', 100)}
+config['classifier']['model']['base_channels'] = $ch
+with open('config_temp.yaml', 'w') as f:
+    yaml.dump(config, f)
+"
+            
+            python scripts/train_classifier.py --config config_temp.yaml --enable-wandb --wandb-name "classifier_lr${{lr}}_wd${{wd}}_ch${{ch}}"
+            
+            if [ $? -ne 0 ]; then
+                echo "❌ Failed for LR=$lr, WD=$wd, CH=$ch"
+                continue
+            fi
+        done
     done
-done''',
+done
+
+# Restore original config
+mv config_backup.yaml config.yaml
+rm -f config_temp.yaml
+
+echo "✅ Hyperparameter search completed!"''',
         "Hyperparameter search",
         config
     )
@@ -313,6 +314,8 @@ done''',
     
     print(f"\n🧪 Usage:")
     print("  Test setup:        sbatch job_test.sh")
+    print("  Quick tests:       sbatch job_diffusion_quick.sh")
+    print("                     sbatch job_classifier_quick.sh")
     print("  Train models:      sbatch job_diffusion.sh")
     print("                     sbatch job_classifier.sh") 
     print("  Resume training:   export CHECKPOINT=path && sbatch job_resume_diffusion.sh")
@@ -320,6 +323,9 @@ done''',
     print("  Evaluate:          export CHECKPOINT=path && sbatch job_evaluate.sh")
     print("  Hypersearch:       sbatch job_hypersearch.sh")
     print("  Check jobs:        squeue -u $USER")
+    
+    print(f"\n📝 Note: All scripts now read configuration from config.yaml")
+    print("         To change settings, edit config.yaml directly")
     
     return 0
 

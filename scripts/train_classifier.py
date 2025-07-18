@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Training script for classifier model.
+Training script for classifier model - reads configuration from config.yaml only.
 """
 import os
 import sys
@@ -15,19 +15,17 @@ from data.dataset import AcneDataset
 from data.transforms import create_transforms
 from models.classifier import ClassifierModel
 from training.classifier_trainer import ClassifierTrainer
-from configs.classifier_config import ClassifierModelConfig, ClassifierTrainingConfig
-from configs.base_config import DataConfig
 from utils.visualization import show_batch, plot_learning_curves
-from utils.config_parser import add_config_args, update_config_from_args
+from utils.config_reader import ConfigReader
 
 
-def setup_data(config: ClassifierTrainingConfig, data_config: DataConfig):
+def setup_data(training_config, data_config):
     """Setup data loaders."""
     print("📁 Setting up data loaders...")
     
     # Create transforms
     train_transforms, val_transforms = create_transforms(
-        img_size=config.img_size,
+        img_size=training_config.img_size,
         apply_augmentation=data_config.apply_augmentation
     )
     
@@ -50,7 +48,7 @@ def setup_data(config: ClassifierTrainingConfig, data_config: DataConfig):
         print(f"      Level {severity}: {count} images ({percentage:.1f}%)")
     
     # Split dataset
-    train_size = int(config.train_split * len(full_dataset))
+    train_size = int(training_config.train_split * len(full_dataset))
     val_size = len(full_dataset) - train_size
     
     train_ds, val_ds = random_split(
@@ -69,20 +67,20 @@ def setup_data(config: ClassifierTrainingConfig, data_config: DataConfig):
     # Create data loaders
     train_loader = DataLoader(
         train_ds, 
-        batch_size=config.batch_size, 
+        batch_size=training_config.batch_size, 
         shuffle=True, 
-        num_workers=config.num_workers, 
+        num_workers=training_config.num_workers, 
         drop_last=True, 
-        pin_memory=config.pin_memory
+        pin_memory=training_config.pin_memory
     )
     
     val_loader = DataLoader(
         val_ds, 
-        batch_size=config.batch_size, 
+        batch_size=training_config.batch_size, 
         shuffle=False, 
-        num_workers=config.num_workers, 
+        num_workers=training_config.num_workers, 
         drop_last=True,
-        pin_memory=config.pin_memory
+        pin_memory=training_config.pin_memory
     )
     
     print(f"   Training batches: {len(train_loader)}")
@@ -94,63 +92,79 @@ def setup_data(config: ClassifierTrainingConfig, data_config: DataConfig):
 def main():
     parser = argparse.ArgumentParser(description='Train classifier model')
     
-    # Add all config arguments automatically
-    add_config_args(parser, ClassifierModelConfig, prefix="model-")
-    add_config_args(parser, ClassifierTrainingConfig, prefix="train-")
-    add_config_args(parser, DataConfig, prefix="data-")
-    
-    # Keep existing manual arguments for compatibility
-    parser.add_argument('--config', type=str, help='Path to config file')
+    # Only essential arguments that don't change configuration
+    parser.add_argument('--config', type=str, default='config.yaml',
+                       help='Path to config file (default: config.yaml)')
     parser.add_argument('--resume', type=str, help='Path to checkpoint to resume from')
-    parser.add_argument('--device', type=str, default='auto', 
-                       choices=['auto', 'cuda', 'cpu'], help='Device to use')
-    
-    # Wandb arguments
-    parser.add_argument('--wandb', action='store_true', help='Enable wandb logging')
-    parser.add_argument('--wandb-project', type=str, default='acne-diffusion',
-                       help='Wandb project name')
-    parser.add_argument('--wandb-entity', type=str, help='Wandb entity/username')
-    parser.add_argument('--wandb-tags', type=str, nargs='+', help='Wandb tags')
-    parser.add_argument('--wandb-name', type=str, help='Wandb run name')
+    parser.add_argument('--quick-test', action='store_true', 
+                       help='Run quick test with reduced epochs')
+    parser.add_argument('--enable-wandb', action='store_true',
+                       help='Enable wandb logging (overrides config)')
+    parser.add_argument('--wandb-name', type=str, 
+                       help='Wandb run name (overrides experiment name)')
     
     args = parser.parse_args()
     
+    # Load configuration from YAML
+    print(f"📖 Loading configuration from: {args.config}")
+    try:
+        config_reader = ConfigReader(args.config)
+    except FileNotFoundError as e:
+        print(f"❌ {e}")
+        return 1
+    
+    # Get configurations
+    model_config = config_reader.get_classifier_model_config()
+    training_config = config_reader.get_classifier_training_config()
+    data_config = config_reader.get_data_config()
+    
+    # Apply quick test settings if requested
+    if args.quick_test:
+        quick_config = config_reader.get('classifier.quick_test', {})
+        training_config.n_epochs = quick_config.get('n_epochs', 50)
+        training_config.batch_size = quick_config.get('batch_size', 16)
+        print(f"⚡ Quick test mode: {training_config.n_epochs} epochs, batch size {training_config.batch_size}")
+    
+    # Apply wandb settings if enabled
+    if args.enable_wandb:
+        wandb_config = config_reader.get_wandb_config()
+        training_config.use_wandb = True
+        training_config.wandb_project = wandb_config.get('project', 'acne-diffusion')
+        training_config.wandb_entity = wandb_config.get('entity')
+        training_config.wandb_tags = wandb_config.get('tags', ['classifier'])
+        print("🌐 Wandb logging enabled")
+    
+    # Set custom wandb name if provided
+    if args.wandb_name:
+        import time
+        timestamp = int(time.time())
+        training_config.experiment_dir = f"{config_reader.get('project.experiments_dir')}/{args.wandb_name}_{timestamp}"
+        print(f"📝 Custom experiment name: {args.wandb_name}")
+    
     # Setup device
-    if args.device == 'auto':
+    device_config = training_config.device
+    if device_config == "auto":
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     else:
-        device = torch.device(args.device)
+        device = torch.device(device_config)
     
     print(f"🖥️ Using device: {device}")
     if torch.cuda.is_available():
         print(f"   GPU: {torch.cuda.get_device_name()}")
         print(f"   Memory: {torch.cuda.get_device_properties(0).total_memory / 1024**3:.1f} GB")
     
-    # Setup configurations
-    model_config = ClassifierModelConfig()
-    training_config = ClassifierTrainingConfig()
-    data_config = DataConfig()
-    
-    # Override config with command line arguments
-    model_config = update_config_from_args(model_config, args, prefix="model_")
-    training_config = update_config_from_args(training_config, args, prefix="train_")
-    data_config = update_config_from_args(data_config, args, prefix="data_")
-    
-    # Wandb configuration
-    if args.wandb:
-        training_config.use_wandb = True
-    if args.wandb_project:
-        training_config.wandb_project = args.wandb_project
-    if args.wandb_entity:
-        training_config.wandb_entity = args.wandb_entity
-    if args.wandb_tags:
-        training_config.wandb_tags = args.wandb_tags
-    
-    # Create experiment name with timestamp if wandb name provided
-    if args.wandb_name:
-        import time
-        timestamp = int(time.time())
-        training_config.experiment_dir = f"{training_config.experiment_dir}/{args.wandb_name}_{timestamp}"
+    # Print configuration summary
+    print(f"\n📋 Configuration Summary:")
+    print(f"   Data directory: {data_config.dataset_path}")
+    print(f"   Experiment directory: {training_config.experiment_dir}")
+    print(f"   Epochs: {training_config.n_epochs}")
+    print(f"   Batch size: {training_config.batch_size}")
+    print(f"   Learning rate: {training_config.learning_rate}")
+    print(f"   Weight decay: {training_config.weight_decay}")
+    print(f"   Image size: {training_config.img_size}")
+    print(f"   Model base channels: {model_config.base_channels}")
+    print(f"   Mixed precision: {training_config.mixed_precision}")
+    print(f"   Classes: {model_config.out_channels}")
     
     # Setup data
     train_loader, val_loader = setup_data(training_config, data_config)
@@ -182,7 +196,7 @@ def main():
         print(f"🔄 Resuming from checkpoint: {args.resume}")
         if not trainer.resume_from_checkpoint(args.resume):
             print("❌ Failed to resume from checkpoint")
-            return
+            return 1
     
     # Start training
     print("🚀 Starting training...")
@@ -205,7 +219,9 @@ def main():
     print(f"🎯 Best validation accuracy: {trainer.best_val_accuracy:.2f}%")
     print(f"📁 Final model saved to: {final_model_path}")
     print(f"📁 Experiment directory: {training_config.experiment_dir}")
+    
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

@@ -1,4 +1,4 @@
-# Simple Configuration for Acne Diffusion Project
+# Comprehensive Configuration for Acne Diffusion Project
 
 # Project Settings
 project:
@@ -21,27 +21,119 @@ wandb:
   entity: null
   tags: ["cluster"]
 
-# Default Training Parameters
+# Diffusion Model Configuration
 diffusion:
-  epochs: 100
-  batch_size: 16
-  learning_rate: 1e-4
-  base_channels: 256
-  quick_epochs: 5
+  # Model Architecture
+  model:
+    spatial_dims: 2
+    in_channels: 3
+    out_channels: 3
+    base_channels: 256
+    channels_multiple: [1, 1, 2, 3, 4, 4]
+    attention_levels: [false, false, false, false, true, false]
+    num_res_blocks: 2
+    num_head_channels: 64
+    with_conditioning: false
+    resblock_updown: true
+    dropout: 0.0
+  
+  # Training Parameters
+  training:
+    img_size: 128
+    batch_size: 16
+    train_split: 0.8
+    num_workers: 4
+    pin_memory: true
+    device: "cuda"
+    mixed_precision: true
+    log_interval: 10
+    checkpoint_interval: 10
+    val_interval: 10
+    learning_rate: 0.0001
+    n_epochs: 2
+    num_train_timesteps: 1000
+    num_inference_steps: 1000
+    intermediate_steps: 100
+    save_intermediates: true
+    num_samples: 1
+    sample_interval: 10
+    process_interval: 10
+    use_wandb: false
+    wandb_project: "acne-diffusion"
+    wandb_entity: null
+    wandb_tags: null
+  
+  # Quick test settings
+  quick_test:
+    n_epochs: 2
+    batch_size: 8
 
+# Classifier Model Configuration  
 classifier:
-  epochs: 2000
-  batch_size: 32
-  learning_rate: 3e-4
-  weight_decay: 0.01
-  base_channels: 128
-  quick_epochs: 50
+  # Model Architecture
+  model:
+    spatial_dims: 2
+    in_channels: 3
+    out_channels: 4
+    base_channels: 128
+    channels_multiple: [1, 1, 2, 3, 4]
+    attention_levels: [false, false, false, false, true]
+    num_res_blocks: [2, 2, 2, 2, 2]
+    num_head_channels: 64
+    with_conditioning: false
+  
+  # Training Parameters
+  training:
+    img_size: 128
+    batch_size: 32
+    train_split: 0.8
+    num_workers: 4
+    pin_memory: true
+    device: "cuda"
+    mixed_precision: true
+    log_interval: 10
+    checkpoint_interval: 10
+    val_interval: 10
+    learning_rate: 0.0003
+    weight_decay: 0.099
+    n_epochs: 200
+    noise_timesteps_train: 1000
+    noise_timesteps_val: 1
+    use_wandb: false
+    wandb_project: "acne-diffusion"
+    wandb_entity: null
+    wandb_tags: null
+  
+  # Quick test settings
+  quick_test:
+    n_epochs: 50
+    batch_size: 16
+
+# Data Configuration
+data:
+  dataset_path: "./data/acne_dataset"
+  severity_levels: null  # null means all levels [0, 1, 2, 3]
+  apply_augmentation: true
+  drop_last: true
+  shuffle_train: true
+  num_classes: 4
 
 # Generation Settings
 generation:
   num_samples: 10
+  img_size: 128
   num_inference_steps: 1000
   save_intermediates: true
+  intermediate_steps: 100
+  save_process: true
+  filename_prefix: "generated"
+  seed: null
+
+# Evaluation Settings
+evaluation:
+  batch_size: 32
+  test_split: 0.2
+  device: "auto"
 
 # Cluster Resources
 resources:
@@ -70,9 +162,11 @@ hypersearch:
   diffusion:
     learning_rates: [1e-4, 5e-5, 1e-5]
     batch_sizes: [16, 32]
+    base_channels: [128, 256, 512]
     epochs: 50
   
   classifier:
     learning_rates: [3e-4, 1e-4, 1e-5]
     weight_decays: [0.01, 0.05, 0.1]
+    base_channels: [128, 256]
     epochs: 100

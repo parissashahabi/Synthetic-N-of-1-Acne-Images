@@ -126,6 +126,7 @@ class ClassifierModel:
     def __init__(self, config: ClassifierModelConfig):
         self.config = config
         self.model = self._create_model()
+        print(f"config: {self.config}")
     
     def _create_model(self) -> FixedDiffusionModelEncoder:
         """Create the classifier model."""

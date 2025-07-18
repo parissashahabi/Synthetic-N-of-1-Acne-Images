@@ -1,6 +1,6 @@
-# Simple Makefile for Acne Diffusion Project
+# Simple Makefile for Acne Diffusion Project - Uses config.yaml for all settings
 
-# Include config variables
+# Include auto-generated config variables
 -include config.mk
 
 # Generate config.mk from config.yaml
@@ -18,7 +18,7 @@ help:
 	@echo "  check-gpu                   Check GPU availability"
 	@echo "  interactive-gpu             Request interactive GPU session"
 	@echo ""
-	@echo "Training:"
+	@echo "Training (reads from config.yaml):"
 	@echo "  train-diffusion-quick       Quick diffusion test"
 	@echo "  train-diffusion             Train diffusion model"
 	@echo "  train-classifier-quick      Quick classifier test"
@@ -34,6 +34,10 @@ help:
 	@echo "  submit-diffusion            Submit diffusion training"
 	@echo "  submit-classifier           Submit classifier training"
 	@echo "  check-jobs                  Check job status"
+	@echo ""
+	@echo "Configuration:"
+	@echo "  show-config                 Show current config settings"
+	@echo "  edit-config                 Edit config.yaml"
 
 # Installation
 install:
@@ -65,78 +69,55 @@ interactive-gpu: config.mk
 	srun --partition=$(CLUSTER_PARTITION_INTERACTIVE) --account=$(CLUSTER_ACCOUNT) \
 		--cpus-per-task=4 --gpus=1 --mem=16G --time=02:00:00 --pty bash
 
-# Training commands
-train-diffusion-quick: config.mk
-	@echo "⚡ Quick diffusion test ($(DIFFUSION_QUICK_EPOCHS) epochs)..."
-	PYTHONPATH="$(shell pwd):$(shell pwd)/src:$$PYTHONPATH" python scripts/train_diffusion.py \
-		--data-dataset-path $(DATA_DIR) \
-		--train-experiment-dir $(EXPERIMENTS_DIR)/quick_diffusion_$(shell date +%Y%m%d_%H%M%S) \
-		--train-n-epochs $(DIFFUSION_QUICK_EPOCHS) \
-		--train-batch-size 16
+# Training commands (all read from config.yaml)
+train-diffusion-quick:
+	@echo "⚡ Quick diffusion test..."
+	PYTHONPATH="$(shell pwd):$(shell pwd)/src:$$PYTHONPATH" python scripts/train_diffusion.py --config config.yaml --quick-test
 
-train-diffusion: config.mk
-	@echo "🚀 Training diffusion model ($(DIFFUSION_EPOCHS) epochs)..."
-	PYTHONPATH="$(shell pwd):$(shell pwd)/src:$$PYTHONPATH" python scripts/train_diffusion.py \
-		--data-dataset-path $(DATA_DIR) \
-		--train-experiment-dir $(EXPERIMENTS_DIR)/diffusion_$(shell date +%Y%m%d_%H%M%S) \
-		--train-n-epochs $(DIFFUSION_EPOCHS) \
-		--train-batch-size $(DIFFUSION_BATCH_SIZE) \
-		--train-learning-rate $(DIFFUSION_LR) \
-		--wandb --wandb-project $(WANDB_PROJECT) --wandb-name diffusion_local
+train-diffusion:
+	@echo "🚀 Training diffusion model..."
+	PYTHONPATH="$(shell pwd):$(shell pwd)/src:$$PYTHONPATH" python scripts/train_diffusion.py --config config.yaml
 
-train-classifier-quick: config.mk
-	@echo "⚡ Quick classifier test ($(CLASSIFIER_QUICK_EPOCHS) epochs)..."
-	PYTHONPATH="$(shell pwd):$(shell pwd)/src:$$PYTHONPATH" python scripts/train_classifier.py \
-		--data-dataset-path $(DATA_DIR) \
-		--train-experiment-dir $(EXPERIMENTS_DIR)/quick_classifier_$(shell date +%Y%m%d_%H%M%S) \
-		--train-n-epochs $(CLASSIFIER_QUICK_EPOCHS) \
-		--train-batch-size 16
+train-diffusion-wandb:
+	@echo "🚀 Training diffusion model with wandb..."
+	PYTHONPATH="$(shell pwd):$(shell pwd)/src:$$PYTHONPATH" python scripts/train_diffusion.py --config config.yaml --enable-wandb
 
-train-classifier: config.mk
-	@echo "🎓 Training classifier model ($(CLASSIFIER_EPOCHS) epochs)..."
-	PYTHONPATH="$(shell pwd):$(shell pwd)/src:$$PYTHONPATH" python scripts/train_classifier.py \
-		--data-dataset-path $(DATA_DIR) \
-		--train-experiment-dir $(EXPERIMENTS_DIR)/classifier_$(shell date +%Y%m%d_%H%M%S) \
-		--train-n-epochs $(CLASSIFIER_EPOCHS) \
-		--train-batch-size $(CLASSIFIER_BATCH_SIZE) \
-		--train-learning-rate $(CLASSIFIER_LR) \
-		--wandb --wandb-project $(WANDB_PROJECT) --wandb-name classifier_local
+train-classifier-quick:
+	@echo "⚡ Quick classifier test..."
+	PYTHONPATH="$(shell pwd):$(shell pwd)/src:$$PYTHONPATH" python scripts/train_classifier.py --config config.yaml --quick-test
+
+train-classifier:
+	@echo "🎓 Training classifier model..."
+	PYTHONPATH="$(shell pwd):$(shell pwd)/src:$$PYTHONPATH" python scripts/train_classifier.py --config config.yaml
+
+train-classifier-wandb:
+	@echo "🎓 Training classifier model with wandb..."
+	PYTHONPATH="$(shell pwd):$(shell pwd)/src:$$PYTHONPATH" python scripts/train_classifier.py --config config.yaml --enable-wandb
 
 # Resume training
-resume-diffusion: config.mk
+resume-diffusion:
 	@if [ -z "$(CHECKPOINT)" ]; then echo "Usage: make resume-diffusion CHECKPOINT=path"; exit 1; fi
 	PYTHONPATH="$(shell pwd):$(shell pwd)/src:$$PYTHONPATH" python scripts/train_diffusion.py \
-		--resume $(CHECKPOINT) \
-		--data-dataset-path $(DATA_DIR) \
-		--train-experiment-dir $(EXPERIMENTS_DIR)/resumed_diffusion_$(shell date +%Y%m%d_%H%M%S) \
-		--wandb --wandb-project $(WANDB_PROJECT) --wandb-name diffusion_resumed
+		--config config.yaml --resume $(CHECKPOINT) --enable-wandb --wandb-name diffusion_resumed
 
-resume-classifier: config.mk
+resume-classifier:
 	@if [ -z "$(CHECKPOINT)" ]; then echo "Usage: make resume-classifier CHECKPOINT=path"; exit 1; fi
 	PYTHONPATH="$(shell pwd):$(shell pwd)/src:$$PYTHONPATH" python scripts/train_classifier.py \
-		--resume $(CHECKPOINT) \
-		--data-dataset-path $(DATA_DIR) \
-		--train-experiment-dir $(EXPERIMENTS_DIR)/resumed_classifier_$(shell date +%Y%m%d_%H%M%S) \
-		--wandb --wandb-project $(WANDB_PROJECT) --wandb-name classifier_resumed
+		--config config.yaml --resume $(CHECKPOINT) --enable-wandb --wandb-name classifier_resumed
 
 # Generation and evaluation
-generate: config.mk
+generate:
 	@if [ -z "$(CHECKPOINT)" ]; then echo "Usage: make generate CHECKPOINT=path"; exit 1; fi
 	PYTHONPATH="$(shell pwd):$(shell pwd)/src:$$PYTHONPATH" python scripts/generate_samples.py \
-		--checkpoint $(CHECKPOINT) \
-		--output-dir ./generated_$(shell date +%Y%m%d_%H%M%S) \
-		--train-num-samples 10 \
-		--train-save-intermediates
+		--config config.yaml --checkpoint $(CHECKPOINT) --output-dir ./generated_$(shell date +%Y%m%d_%H%M%S)
 
-evaluate: config.mk
+evaluate:
 	@if [ -z "$(CHECKPOINT)" ]; then echo "Usage: make evaluate CHECKPOINT=path"; exit 1; fi
 	PYTHONPATH="$(shell pwd):$(shell pwd)/src:$$PYTHONPATH" python scripts/evaluate_model.py \
-		--checkpoint $(CHECKPOINT) \
-		--data-dataset-path $(DATA_DIR) \
-		--output-dir ./evaluation_$(shell date +%Y%m%d_%H%M%S)
+		--config config.yaml --checkpoint $(CHECKPOINT) --output-dir ./evaluation_$(shell date +%Y%m%d_%H%M%S)
 
 # SLURM job management
-generate-slurm-scripts: config.mk
+generate-slurm-scripts:
 	@echo "📝 Generating SLURM job scripts..."
 	python scripts/generate_slurm_jobs.py
 
@@ -151,6 +132,43 @@ submit-classifier:
 
 check-jobs:
 	@squeue -u $$USER 2>/dev/null || echo "No SLURM jobs or not on cluster"
+
+# Configuration management
+show-config: config.mk
+	@echo "📋 Current Configuration (from config.yaml)"
+	@echo "==========================================="
+	@echo "Project: $(PROJECT_NAME)"
+	@echo "Data: $(DATA_DIR)"
+	@echo "Conda env: $(CONDA_ENV)"
+	@echo ""
+	@echo "Diffusion:"
+	@echo "  Epochs: $(DIFFUSION_EPOCHS)"
+	@echo "  Batch size: $(DIFFUSION_BATCH_SIZE)"
+	@echo "  Learning rate: $(DIFFUSION_LR)"
+	@echo "  Quick test epochs: $(DIFFUSION_QUICK_EPOCHS)"
+	@echo ""
+	@echo "Classifier:"
+	@echo "  Epochs: $(CLASSIFIER_EPOCHS)"
+	@echo "  Batch size: $(CLASSIFIER_BATCH_SIZE)"
+	@echo "  Learning rate: $(CLASSIFIER_LR)"
+	@echo "  Quick test epochs: $(CLASSIFIER_QUICK_EPOCHS)"
+	@echo ""
+	@echo "Wandb project: $(WANDB_PROJECT)"
+	@echo "Cluster account: $(CLUSTER_ACCOUNT)"
+	@echo ""
+	@echo "📝 To change settings, edit config.yaml"
+
+edit-config:
+	@echo "📝 Opening config.yaml for editing..."
+	@if command -v code >/dev/null 2>&1; then \
+		code config.yaml; \
+	elif command -v nano >/dev/null 2>&1; then \
+		nano config.yaml; \
+	elif command -v vim >/dev/null 2>&1; then \
+		vim config.yaml; \
+	else \
+		echo "❌ No editor found. Please edit config.yaml manually"; \
+	fi
 
 # Status and utilities
 status: config.mk
@@ -168,14 +186,12 @@ status: config.mk
 	else \
 		echo "❌ Dataset not found at $(DATA_DIR)"; \
 	fi
+	@echo ""
+	@echo "📝 Configuration: All settings read from config.yaml"
 
-show-config: config.mk
-	@echo "📋 Configuration"
-	@echo "==============="
-	@echo "Diffusion: $(DIFFUSION_EPOCHS) epochs, batch $(DIFFUSION_BATCH_SIZE), lr $(DIFFUSION_LR)"
-	@echo "Classifier: $(CLASSIFIER_EPOCHS) epochs, batch $(CLASSIFIER_BATCH_SIZE), lr $(CLASSIFIER_LR)"
-	@echo "Wandb project: $(WANDB_PROJECT)"
-	@echo "Cluster account: $(CLUSTER_ACCOUNT)"
+validate-config:
+	@echo "🔍 Validating config.yaml..."
+	@python -c "from src.utils.config_reader import ConfigReader; c = ConfigReader('config.yaml'); print('✅ config.yaml is valid')" || echo "❌ config.yaml has errors"
 
 clean:
 	find . -name "*.pyc" -delete

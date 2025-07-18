@@ -20,6 +20,7 @@ class DiffusionModel:
         self.model = self._create_model()
         self.scheduler = self._create_scheduler()
         self.inferer = self._create_inferer()
+        print(f"config: {self.config}")
         
     def _create_model(self) -> DiffusionModelUNet:
         """Create the U-Net model."""

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Generate samples using trained diffusion model.
+Generate samples using trained diffusion model - reads configuration from config.yaml only.
 """
 import os
 import sys
@@ -15,9 +15,8 @@ from torch.cuda.amp import autocast
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from models.diffusion import DiffusionModel
-from configs.diffusion_config import DiffusionModelConfig, DiffusionTrainingConfig
 from utils.checkpoints import CheckpointManager
-from utils.config_parser import add_config_args, update_config_from_args
+from utils.config_reader import ConfigReader
 
 
 def display_results(image, intermediates, config, save_dir, title_prefix, generation_time):
@@ -50,7 +49,7 @@ def display_results(image, intermediates, config, save_dir, title_prefix, genera
     plt.show()
     
     # Display generation process
-    if intermediates and config.save_intermediates:
+    if intermediates and config.get('save_intermediates', False):
         # Create denoising process visualization
         chain = torch.cat(intermediates, dim=-1)
         
@@ -66,7 +65,7 @@ def display_results(image, intermediates, config, save_dir, title_prefix, genera
         
         plt.imshow(rgb_chain, cmap="gray" if chain.shape[1] == 1 else None)
         plt.axis("off")
-        plt.title(f"{title_prefix} - Denoising Process ({config.intermediate_steps} steps)", 
+        plt.title(f"{title_prefix} - Denoising Process ({config.get('intermediate_steps', 100)} steps)", 
                   fontsize=12)
         plt.tight_layout()
         
@@ -88,30 +87,30 @@ def run_inference(model, config, device, save_dir=None, title_prefix="Generated"
     
     # Create random noise
     noise = torch.randn((
-        config.num_samples, 
+        config['num_samples'], 
         3, 
-        config.img_size, 
-        config.img_size
+        config['img_size'], 
+        config['img_size']
     )).to(device)
     
     print(f"   Noise shape: {noise.shape}")
-    print(f"   Inference steps: {config.num_inference_steps}")
+    print(f"   Inference steps: {config['num_inference_steps']}")
     
     # Set scheduler timesteps
-    model.scheduler.set_timesteps(num_inference_steps=config.num_inference_steps)
+    model.scheduler.set_timesteps(num_inference_steps=config['num_inference_steps'])
     
     # Generate images
     start_time = time.time()
     
     with torch.no_grad():
         with autocast(enabled=True):
-            if config.save_intermediates:
+            if config.get('save_intermediates', False):
                 image, intermediates = model.inferer.sample(
                     input_noise=noise, 
                     diffusion_model=model.model, 
                     scheduler=model.scheduler, 
                     save_intermediates=True, 
-                    intermediate_steps=config.intermediate_steps
+                    intermediate_steps=config.get('intermediate_steps', 100)
                 )
             else:
                 image = model.inferer.sample(
@@ -133,19 +132,31 @@ def run_inference(model, config, device, save_dir=None, title_prefix="Generated"
 def main():
     parser = argparse.ArgumentParser(description='Generate samples with diffusion model')
     
-    # Add all config arguments automatically
-    add_config_args(parser, DiffusionModelConfig, prefix="model-")
-    add_config_args(parser, DiffusionTrainingConfig, prefix="train-")
-    
-    # Keep existing manual arguments
+    # Essential arguments only
+    parser.add_argument('--config', type=str, default='config.yaml',
+                       help='Path to config file (default: config.yaml)')
     parser.add_argument('--checkpoint', type=str, required=True,
                        help='Path to model checkpoint')
     parser.add_argument('--output-dir', type=str, default='./generated_samples',
                        help='Output directory for generated samples')
     parser.add_argument('--device', type=str, default='auto', 
                        choices=['auto', 'cuda', 'cpu'], help='Device to use')
+    parser.add_argument('--seed', type=int, help='Random seed for reproducible generation')
     
     args = parser.parse_args()
+    
+    # Load configuration from YAML
+    print(f"📖 Loading configuration from: {args.config}")
+    try:
+        config_reader = ConfigReader(args.config)
+    except FileNotFoundError as e:
+        print(f"❌ {e}")
+        return 1
+    
+    # Get configurations
+    model_config = config_reader.get_diffusion_model_config()
+    training_config = config_reader.get_diffusion_training_config()
+    generation_config = config_reader.get_generation_config()
     
     # Setup device
     if args.device == 'auto':
@@ -155,16 +166,23 @@ def main():
     
     print(f"🖥️ Using device: {device}")
     
+    # Set random seed if provided
+    if args.seed:
+        torch.manual_seed(args.seed)
+        np.random.seed(args.seed)
+        print(f"🎲 Random seed set to: {args.seed}")
+    
     # Create output directory
     os.makedirs(args.output_dir, exist_ok=True)
     
-    # Setup configurations
-    model_config = DiffusionModelConfig()
-    training_config = DiffusionTrainingConfig()
-    
-    # Override with command line arguments
-    model_config = update_config_from_args(model_config, args, prefix="model_")
-    training_config = update_config_from_args(training_config, args, prefix="train_")
+    # Print configuration summary
+    print(f"\n📋 Generation Configuration:")
+    print(f"   Checkpoint: {args.checkpoint}")
+    print(f"   Output directory: {args.output_dir}")
+    print(f"   Number of samples: {generation_config['num_samples']}")
+    print(f"   Image size: {generation_config['img_size']}")
+    print(f"   Inference steps: {generation_config['num_inference_steps']}")
+    print(f"   Save intermediates: {generation_config['save_intermediates']}")
     
     # Create model
     print("🏗️ Creating diffusion model...")
@@ -183,13 +201,13 @@ def main():
     
     if checkpoint is None:
         print("❌ Failed to load checkpoint")
-        return
+        return 1
     
     # Run inference
-    print(f"🎨 Generating {args.num_samples} sample(s)...")
+    print(f"🎨 Generating {generation_config['num_samples']} sample(s)...")
     
-    for i in range(args.num_samples):
-        print(f"\n--- Sample {i+1}/{args.num_samples} ---")
+    for i in range(generation_config['num_samples']):
+        print(f"\n--- Sample {i+1}/{generation_config['num_samples']} ---")
         
         # Create sample-specific save directory
         sample_dir = os.path.join(args.output_dir, f"sample_{i+1}")
@@ -198,7 +216,7 @@ def main():
         # Generate sample
         image, intermediates = run_inference(
             model=model,
-            config=training_config,
+            config=generation_config,
             device=device,
             save_dir=sample_dir,
             title_prefix=f"Sample_{i+1}"
@@ -206,7 +224,9 @@ def main():
     
     print(f"\n✅ Generation completed!")
     print(f"📁 Results saved to: {args.output_dir}")
+    
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

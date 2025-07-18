@@ -1,13 +1,15 @@
 """
-Simple configuration reader for YAML config.
+Enhanced configuration reader for YAML config with dataclass integration.
 """
 import yaml
 import os
 from pathlib import Path
+from dataclasses import dataclass, fields
+from typing import Dict, List, Optional, Any, Union
 
 
 class ConfigReader:
-    """Simple configuration reader."""
+    """Enhanced configuration reader with dataclass integration."""
     
     def __init__(self, config_path: str = "config.yaml"):
         self.config_path = Path(config_path)
@@ -18,7 +20,7 @@ class ConfigReader:
             self.config = yaml.safe_load(f)
     
     def get(self, key_path: str, default=None):
-        """Get config value using dot notation (e.g., 'diffusion.epochs')."""
+        """Get config value using dot notation (e.g., 'diffusion.training.epochs')."""
         keys = key_path.split('.')
         value = self.config
         
@@ -28,6 +30,103 @@ class ConfigReader:
             return value
         except (KeyError, TypeError):
             return default
+    
+    def get_diffusion_model_config(self):
+        """Get diffusion model configuration as dataclass."""
+        from configs.diffusion_config import DiffusionModelConfig
+        
+        model_config = DiffusionModelConfig()
+        model_data = self.get('diffusion.model', {})
+        
+        for field in fields(model_config):
+            if field.name in model_data:
+                value = model_data[field.name]
+                # Convert lists to tuples if needed
+                if field.name in ['channels_multiple', 'attention_levels'] and isinstance(value, list):
+                    value = tuple(value)
+                setattr(model_config, field.name, value)
+        
+        return model_config
+    
+    def get_diffusion_training_config(self):
+        """Get diffusion training configuration as dataclass."""
+        from configs.diffusion_config import DiffusionTrainingConfig
+        
+        training_config = DiffusionTrainingConfig()
+        training_data = self.get('diffusion.training', {})
+        
+        # Set experiment directory with timestamp
+        import time
+        timestamp = int(time.time())
+        experiment_name = f"diffusion_{timestamp}"
+        training_data['experiment_dir'] = f"{self.get('project.experiments_dir')}/{experiment_name}"
+        
+        for field in fields(training_config):
+            if field.name in training_data:
+                setattr(training_config, field.name, training_data[field.name])
+        
+        return training_config
+    
+    def get_classifier_model_config(self):
+        """Get classifier model configuration as dataclass."""
+        from configs.classifier_config import ClassifierModelConfig
+        
+        model_config = ClassifierModelConfig()
+        model_data = self.get('classifier.model', {})
+        
+        for field in fields(model_config):
+            if field.name in model_data:
+                value = model_data[field.name]
+                # Convert lists to tuples if needed
+                if field.name in ['channels_multiple', 'attention_levels', 'num_res_blocks'] and isinstance(value, list):
+                    value = tuple(value)
+                setattr(model_config, field.name, value)
+        
+        return model_config
+    
+    def get_classifier_training_config(self):
+        """Get classifier training configuration as dataclass."""
+        from configs.classifier_config import ClassifierTrainingConfig
+        
+        training_config = ClassifierTrainingConfig()
+        training_data = self.get('classifier.training', {})
+        
+        # Set experiment directory with timestamp
+        import time
+        timestamp = int(time.time())
+        experiment_name = f"classifier_{timestamp}"
+        training_data['experiment_dir'] = f"{self.get('project.experiments_dir')}/{experiment_name}"
+        
+        for field in fields(training_config):
+            if field.name in training_data:
+                setattr(training_config, field.name, training_data[field.name])
+        
+        return training_config
+    
+    def get_data_config(self):
+        """Get data configuration as dataclass."""
+        from configs.base_config import DataConfig
+        
+        data_config = DataConfig()
+        data_data = self.get('data', {})
+        
+        for field in fields(data_config):
+            if field.name in data_data:
+                setattr(data_config, field.name, data_data[field.name])
+        
+        return data_config
+    
+    def get_generation_config(self):
+        """Get generation configuration."""
+        return self.get('generation', {})
+    
+    def get_evaluation_config(self):
+        """Get evaluation configuration."""
+        return self.get('evaluation', {})
+    
+    def get_wandb_config(self):
+        """Get wandb configuration."""
+        return self.get('wandb', {})
     
     def export_for_makefile(self, output_file: str = "config.mk"):
         """Export config as Makefile variables."""
@@ -46,25 +145,16 @@ class ConfigReader:
             "",
             f"WANDB_PROJECT := {self.get('wandb.project')}",
             "",
-            f"DIFFUSION_EPOCHS := {self.get('diffusion.epochs')}",
-            f"DIFFUSION_BATCH_SIZE := {self.get('diffusion.batch_size')}",
-            f"DIFFUSION_LR := {self.get('diffusion.learning_rate')}",
-            f"DIFFUSION_QUICK_EPOCHS := {self.get('diffusion.quick_epochs')}",
+            f"DIFFUSION_EPOCHS := {self.get('diffusion.training.n_epochs')}",
+            f"DIFFUSION_BATCH_SIZE := {self.get('diffusion.training.batch_size')}",
+            f"DIFFUSION_LR := {self.get('diffusion.training.learning_rate')}",
+            f"DIFFUSION_QUICK_EPOCHS := {self.get('diffusion.quick_test.n_epochs')}",
             "",
-            f"CLASSIFIER_EPOCHS := {self.get('classifier.epochs')}",
-            f"CLASSIFIER_BATCH_SIZE := {self.get('classifier.batch_size')}",
-            f"CLASSIFIER_LR := {self.get('classifier.learning_rate')}",
-            f"CLASSIFIER_QUICK_EPOCHS := {self.get('classifier.quick_epochs')}",
+            f"CLASSIFIER_EPOCHS := {self.get('classifier.training.n_epochs')}",
+            f"CLASSIFIER_BATCH_SIZE := {self.get('classifier.training.batch_size')}",
+            f"CLASSIFIER_LR := {self.get('classifier.training.learning_rate')}",
+            f"CLASSIFIER_QUICK_EPOCHS := {self.get('classifier.quick_test.n_epochs')}",
         ]
-        
-        # Add resource configs
-        for resource_name, resource_config in self.get('resources', {}).items():
-            prefix = f"RESOURCE_{resource_name.upper()}"
-            lines.extend([
-                f"{prefix}_TIME := {resource_config.get('time')}",
-                f"{prefix}_MEMORY := {resource_config.get('memory')}",
-                f"{prefix}_CPUS := {resource_config.get('cpus')}",
-            ])
         
         with open(output_file, 'w') as f:
             f.write('\n'.join(lines))
