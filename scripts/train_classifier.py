@@ -18,6 +18,20 @@ from training.classifier_trainer import ClassifierTrainer
 from utils.visualization import show_batch, plot_learning_curves
 from utils.config_reader import ConfigReader
 
+# Print class distribution for training and validation sets
+def print_class_distribution(dataset, set_name):
+    """Print class distribution for a dataset."""
+    class_counts = {}
+    for idx in range(len(dataset)):
+        label = dataset[idx]["label"]
+        class_counts[label] = class_counts.get(label, 0) + 1
+    
+    total_samples = len(dataset)
+    print(f"   {set_name} set class distribution:")
+    for severity in sorted(class_counts.keys()):
+        count = class_counts[severity]
+        percentage = (count / total_samples) * 100
+        print(f"      Level {severity}: {count} images ({percentage:.1f}%)")
 
 def setup_data(training_config, data_config):
     """Setup data loaders."""
@@ -56,6 +70,9 @@ def setup_data(training_config, data_config):
         [train_size, val_size],
         generator=torch.Generator().manual_seed(42)
     )
+
+    print_class_distribution(train_ds, "Training")
+    print_class_distribution(val_ds, "Validation")
     
     # Apply validation transforms
     val_ds.dataset.transform = val_transforms
