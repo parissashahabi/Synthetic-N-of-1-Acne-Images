@@ -12,7 +12,7 @@ from models.diffusion import DiffusionModel
 from utils.checkpoints import CheckpointManager
 from utils.visualization import generate_sample_image, save_generation_process
 from utils.logging import setup_logging, ExperimentLogger
-from configs.diffusion_config import DiffusionTrainingConfig
+from utils.config_schemas import DiffusionTrainingConfig
 
 
 class DiffusionTrainer:

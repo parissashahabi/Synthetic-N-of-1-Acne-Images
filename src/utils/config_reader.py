@@ -7,6 +7,15 @@ from pathlib import Path
 from dataclasses import dataclass, fields
 from typing import Dict, List, Optional, Any, Union
 
+# Import config schemas from the new location
+from .config_schemas import (
+    DiffusionModelConfig, 
+    DiffusionTrainingConfig,
+    ClassifierModelConfig, 
+    ClassifierTrainingConfig,
+    DataConfig
+)
+
 
 class ConfigReader:
     """Enhanced configuration reader with dataclass integration."""
@@ -33,8 +42,6 @@ class ConfigReader:
     
     def get_diffusion_model_config(self):
         """Get diffusion model configuration as dataclass."""
-        from configs.diffusion_config import DiffusionModelConfig
-        
         model_config = DiffusionModelConfig()
         model_data = self.get('diffusion.model', {})
         
@@ -50,8 +57,6 @@ class ConfigReader:
     
     def get_diffusion_training_config(self):
         """Get diffusion training configuration as dataclass."""
-        from configs.diffusion_config import DiffusionTrainingConfig
-        
         training_config = DiffusionTrainingConfig()
         training_data = self.get('diffusion.training', {})
         
@@ -69,8 +74,6 @@ class ConfigReader:
     
     def get_classifier_model_config(self):
         """Get classifier model configuration as dataclass."""
-        from configs.classifier_config import ClassifierModelConfig
-        
         model_config = ClassifierModelConfig()
         model_data = self.get('classifier.model', {})
         
@@ -86,8 +89,6 @@ class ConfigReader:
     
     def get_classifier_training_config(self):
         """Get classifier training configuration as dataclass."""
-        from configs.classifier_config import ClassifierTrainingConfig
-        
         training_config = ClassifierTrainingConfig()
         training_data = self.get('classifier.training', {})
         
@@ -105,8 +106,6 @@ class ConfigReader:
     
     def get_data_config(self):
         """Get data configuration as dataclass."""
-        from configs.base_config import DataConfig
-        
         data_config = DataConfig()
         data_data = self.get('data', {})
         

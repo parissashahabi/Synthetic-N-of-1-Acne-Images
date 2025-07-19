@@ -6,7 +6,7 @@ from generative.networks.nets.diffusion_model_unet import DiffusionModelUNet
 from generative.networks.schedulers.ddpm import DDPMScheduler
 from generative.inferers import DiffusionInferer
 
-from configs.diffusion_config import DiffusionModelConfig, DiffusionTrainingConfig
+from utils.config_schemas import DiffusionModelConfig, DiffusionTrainingConfig
 
 
 class DiffusionModel:

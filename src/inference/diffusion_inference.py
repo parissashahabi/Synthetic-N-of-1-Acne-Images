@@ -10,8 +10,10 @@ from typing import Optional, Tuple, List, Dict, Any
 from torch.cuda.amp import autocast
 from pathlib import Path
 
+from generative.networks.schedulers.ddim import DDIMScheduler
+
 from models.diffusion import DiffusionModel
-from configs.diffusion_config import DiffusionModelConfig, DiffusionTrainingConfig
+from utils.config_schemas import DiffusionModelConfig, DiffusionTrainingConfig
 from utils.checkpoints import CheckpointManager
 
 
@@ -111,6 +113,7 @@ class DiffusionInference:
         ).to(self.device)
         
         # Set scheduler timesteps
+        self.model.scheduler = DDIMScheduler(num_train_timesteps=1000)
         self.model.scheduler.set_timesteps(num_inference_steps=num_inference_steps)
         
         # Generate images

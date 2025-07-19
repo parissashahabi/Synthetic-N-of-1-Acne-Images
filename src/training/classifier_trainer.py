@@ -12,7 +12,7 @@ from generative.networks.schedulers.ddpm import DDPMScheduler
 from models.classifier import ClassifierModel
 from utils.checkpoints import CheckpointManager
 from utils.logging import setup_logging, ExperimentLogger
-from configs.classifier_config import ClassifierTrainingConfig
+from utils.config_schemas import ClassifierTrainingConfig
 
 
 class ClassifierTrainer:

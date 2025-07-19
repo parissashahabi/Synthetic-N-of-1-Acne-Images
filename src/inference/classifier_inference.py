@@ -12,7 +12,7 @@ import torch.nn.functional as F
 from PIL import Image
 
 from models.classifier import ClassifierModel
-from configs.classifier_config import ClassifierModelConfig
+from utils.config_schemas import ClassifierModelConfig
 from utils.checkpoints import CheckpointManager
 from data.transforms import create_transforms
 

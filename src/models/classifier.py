@@ -6,7 +6,7 @@ import torch.nn as nn
 from typing import Union, Optional
 from monai.networks.nets.diffusion_model_unet import DiffusionModelEncoder
 
-from configs.classifier_config import ClassifierModelConfig
+from utils.config_schemas import ClassifierModelConfig
 
 
 class FixedDiffusionModelEncoder(DiffusionModelEncoder):
@@ -160,4 +160,4 @@ class ClassifierModel:
             'total_parameters': total_params,
             'trainable_parameters': trainable_params,
             'model_size_mb': total_params * 4 / (1024 * 1024),
-        }   
+        }

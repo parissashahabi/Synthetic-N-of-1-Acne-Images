@@ -1,6 +1,6 @@
 # src/utils/__init__.py
 """
-Utility modules for checkpoints, visualization, and logging.
+Utility modules for checkpoints, visualization, logging, and configuration.
 """
 
 from .checkpoints import CheckpointManager
@@ -17,6 +17,15 @@ from .logging import (
     ExperimentLogger,
     setup_logging
 )
+from .config_reader import ConfigReader
+from .config_schemas import (
+    DiffusionModelConfig,
+    DiffusionTrainingConfig,
+    ClassifierModelConfig,
+    ClassifierTrainingConfig,
+    DataConfig,
+    BaseConfig
+)
 
 __all__ = [
     "CheckpointManager", 
@@ -28,5 +37,12 @@ __all__ = [
     "WandbLogger",
     "TensorBoardLogger",
     "ExperimentLogger",
-    "setup_logging"
+    "setup_logging",
+    "ConfigReader",
+    "DiffusionModelConfig",
+    "DiffusionTrainingConfig",
+    "ClassifierModelConfig",
+    "ClassifierTrainingConfig",
+    "DataConfig",
+    "BaseConfig"
 ]

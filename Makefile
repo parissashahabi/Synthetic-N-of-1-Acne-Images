@@ -116,6 +116,43 @@ evaluate:
 	PYTHONPATH="$(shell pwd):$(shell pwd)/src:$$PYTHONPATH" python scripts/evaluate_model.py \
 		--config config.yaml --checkpoint $(CHECKPOINT) --output-dir ./evaluation_$(shell date +%Y%m%d_%H%M%S)
 
+# Translation commands
+translate-severity:
+	@if [ -z "$(DIFFUSION_CHECKPOINT)" ] || [ -z "$(CLASSIFIER_CHECKPOINT)" ] || [ -z "$(INPUT_IMAGE)" ] || [ -z "$(TARGET_SEVERITY)" ]; then \
+		echo "❌ Missing required arguments"; \
+		echo "Usage: make translate-severity DIFFUSION_CHECKPOINT=path CLASSIFIER_CHECKPOINT=path INPUT_IMAGE=path TARGET_SEVERITY=0-3"; \
+		echo "Optional: SOURCE_SEVERITY=0-3 OUTPUT_DIR=path GUIDANCE_SCALE=30.0 NUM_STEPS=250"; \
+		exit 1; \
+	fi
+	PYTHONPATH="$(shell pwd):$(shell pwd)/src:$$PYTHONPATH" python scripts/translate_severity.py \
+		--diffusion-checkpoint $(DIFFUSION_CHECKPOINT) \
+		--classifier-checkpoint $(CLASSIFIER_CHECKPOINT) \
+		--input-image $(INPUT_IMAGE) \
+		--target-severity $(TARGET_SEVERITY) \
+		--config config.yaml \
+		$(if $(SOURCE_SEVERITY),--source-severity $(SOURCE_SEVERITY)) \
+		$(if $(OUTPUT_DIR),--output-dir $(OUTPUT_DIR),--output-dir ./translation_results) \
+		$(if $(GUIDANCE_SCALE),--guidance-scale $(GUIDANCE_SCALE)) \
+		$(if $(NUM_STEPS),--num-steps $(NUM_STEPS)) \
+		$(if $(SAVE_PROCESS),--save-process)
+
+translate-with-process:
+	@if [ -z "$(DIFFUSION_CHECKPOINT)" ] || [ -z "$(CLASSIFIER_CHECKPOINT)" ] || [ -z "$(INPUT_IMAGE)" ] || [ -z "$(TARGET_SEVERITY)" ]; then \
+		echo "❌ Missing required arguments"; \
+		exit 1; \
+	fi
+	PYTHONPATH="$(shell pwd):$(shell pwd)/src:$$PYTHONPATH" python scripts/translate_severity.py \
+		--diffusion-checkpoint $(DIFFUSION_CHECKPOINT) \
+		--classifier-checkpoint $(CLASSIFIER_CHECKPOINT) \
+		--input-image $(INPUT_IMAGE) \
+		--target-severity $(TARGET_SEVERITY) \
+		--config config.yaml \
+		--save-process \
+		$(if $(SOURCE_SEVERITY),--source-severity $(SOURCE_SEVERITY)) \
+		$(if $(OUTPUT_DIR),--output-dir $(OUTPUT_DIR),--output-dir ./translation_results) \
+		$(if $(GUIDANCE_SCALE),--guidance-scale $(GUIDANCE_SCALE)) \
+		$(if $(NUM_STEPS),--num-steps $(NUM_STEPS))
+
 # SLURM job management
 generate-slurm-scripts:
 	@echo "📝 Generating SLURM job scripts..."
