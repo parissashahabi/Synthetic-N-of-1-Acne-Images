@@ -1,4 +1,4 @@
-# Comprehensive Configuration for Acne Diffusion Project
+# Pure Config-Driven Hyperparameter Search - ALL VALUES HERE ONLY
 
 # Project Settings
 project:
@@ -15,15 +15,14 @@ cluster:
   partition_interactive: "gpu-interactive"
   email_domain: "utah.edu"
 
-# Wandb Settings (used for all jobs)
+# Wandb Settings
 wandb:
   project: "acne-diffusion"
   entity: null
   tags: ["cluster"]
 
-# Diffusion Model Configuration
+# Diffusion Model Configuration (unchanged)
 diffusion:
-  # Model Architecture
   model:
     spatial_dims: 2
     in_channels: 3
@@ -37,7 +36,6 @@ diffusion:
     resblock_updown: true
     dropout: 0.0
   
-  # Training Parameters
   training:
     img_size: 128
     batch_size: 16
@@ -63,26 +61,23 @@ diffusion:
     wandb_entity: null
     wandb_tags: null
   
-  # Quick test settings
   quick_test:
     n_epochs: 2
     batch_size: 8
 
-# Classifier Model Configuration  
+# Baseline Classifier Configuration
 classifier:
-  # Model Architecture
   model:
     spatial_dims: 2
     in_channels: 3
     out_channels: 4
-    base_channels: 128
-    channels_multiple: [1, 1, 2, 3, 4]
-    attention_levels: [false, false, false, false, true]
-    num_res_blocks: [2, 2, 2, 2, 2]
-    num_head_channels: 64
+    base_channels: 32                    # Your baseline starting point
+    channels_multiple: [1, 2, 2]         # Your baseline: (32, 64, 64)
+    attention_levels: [false, true, true]  # Your baseline
+    num_res_blocks: [1, 1, 1]            # Your baseline
+    num_head_channels: 64                # Your baseline
     with_conditioning: false
   
-  # Training Parameters
   training:
     img_size: 128
     batch_size: 32
@@ -95,24 +90,23 @@ classifier:
     checkpoint_interval: 10
     val_interval: 10
     learning_rate: 0.0003
-    weight_decay: 0.099
-    n_epochs: 200
+    weight_decay: 0.05
+    n_epochs: 100
     noise_timesteps_train: 1000
     noise_timesteps_val: 1
     use_wandb: false
-    wandb_project: "acne-diffusion"
+    wandb_project: "acne-classifier-sweep"
     wandb_entity: null
-    wandb_tags: null
+    wandb_tags: ["hypersearch"]
   
-  # Quick test settings
   quick_test:
-    n_epochs: 50
+    n_epochs: 10
     batch_size: 16
 
 # Data Configuration
 data:
   dataset_path: "./data/acne_dataset"
-  severity_levels: null  # null means all levels [0, 1, 2, 3]
+  severity_levels: null
   apply_augmentation: true
   drop_last: true
   shuffle_train: true
@@ -143,9 +137,9 @@ resources:
     cpus: 4
   
   train:
-    time: "24:00:00"
-    memory: "32GB"
-    cpus: 8
+    time: "12:00:00"
+    memory: "16GB"
+    cpus: 4
   
   generate:
     time: "02:00:00"
@@ -153,20 +147,100 @@ resources:
     cpus: 4
   
   hypersearch:
-    time: "48:00:00"
-    memory: "32GB"
+    time: "72:00:00"
+    memory: "64GB"
     cpus: 8
 
-# Hyperparameter Search
+# ==========================================
+# HYPERPARAMETER SEARCH - ALL VALUES HERE
+# ==========================================
 hypersearch:
-  diffusion:
-    learning_rates: [1e-4, 5e-5, 1e-5]
-    batch_sizes: [16, 32]
-    base_channels: [128, 256, 512]
-    epochs: 50
-  
   classifier:
-    learning_rates: [3e-4, 1e-4, 1e-5]
-    weight_decays: [0.01, 0.05, 0.1]
-    base_channels: [128, 256]
-    epochs: 100
+    # =====================================
+    # ARCHITECTURE DEFINITIONS - EDIT HERE
+    # =====================================
+    architectures:
+      # Your exact baseline
+      baseline:
+        channels_multiple: [1, 2, 2]        # (32, 64, 64) with base=32
+        attention_levels: [false, true, true]
+        num_res_blocks: [1, 1, 1]
+        description: "Your original baseline (~300K params)"
+      
+      # Remove attention to see impact
+      no_attention:
+        channels_multiple: [1, 2, 2]        # (32, 64, 64)
+        attention_levels: [false, false, false]
+        num_res_blocks: [1, 1, 1]
+        description: "No attention (~200K params)"
+      
+      # More depth
+      more_depth:
+        channels_multiple: [1, 2, 2]        # (32, 64, 64)
+        attention_levels: [false, true, true]
+        num_res_blocks: [2, 2, 2]
+        description: "More ResBlocks (~400K params)"
+      
+      # Slightly wider
+      wider:
+        channels_multiple: [1, 2, 3]        # (32, 64, 96)
+        attention_levels: [false, false, true]
+        num_res_blocks: [1, 1, 1]
+        description: "Slightly wider (~350K params)"
+      
+      # 4-level small
+      small_4level:
+        channels_multiple: [1, 1, 2, 2]     # (32, 32, 64, 64)
+        attention_levels: [false, false, false, true]
+        num_res_blocks: [1, 1, 1, 1]
+        description: "Small 4-level (~300K params)"
+      
+      # 4-level compact
+      compact_4level:
+        channels_multiple: [1, 1, 1, 2]     # (32, 32, 32, 64)
+        attention_levels: [false, false, false, true]
+        num_res_blocks: [1, 1, 1, 1]
+        description: "Compact 4-level (~250K params)"
+      
+      # Medium size (upper bound)
+      medium:
+        channels_multiple: [1, 3, 4]        # (32, 96, 128)
+        attention_levels: [false, true, true]
+        num_res_blocks: [1, 2, 2]
+        description: "Medium size (~800K params)"
+    
+    # =====================================
+    # SEARCH PARAMETERS - EDIT HERE
+    # =====================================
+    
+    # Base channel options (multiples of 32)
+    base_channels_options: [32, 64, 128]
+    
+    # Image size options  
+    image_sizes: [64, 128, 256]
+    
+    # Attention head channel options
+    num_head_channels_options: [32, 64]
+    
+    # Training parameter ranges
+    learning_rates: [0.000001, 0.00001, 0.00003, 0.0001, 0.0003, 0.001]
+    weight_decays: [0.01, 0.05, 0.1, 0.15]
+    batch_sizes: [8, 16, 32, 64]
+    noise_timesteps: [1, 1000]      # 0 means no noise
+    
+    # Training epochs
+    n_epochs: 100
+    
+    # =====================================
+    # CONSTRAINTS - EDIT HERE
+    # =====================================
+    max_parameters: 2000000               # 2M parameter limit
+    
+    # =====================================
+    # WANDB SETTINGS - EDIT HERE  
+    # =====================================
+    wandb_project: "acne-classifier-sweep"
+    sweep_method: "grid"                 # bayes, grid, random
+    metric_name: "final_val_accuracy"
+    metric_goal: "maximize"               # maximize, minimize
+    max_runs: 50
