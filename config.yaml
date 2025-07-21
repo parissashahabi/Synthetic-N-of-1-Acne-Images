@@ -184,21 +184,21 @@ hypersearch:
       # Slightly wider
       wider:
         channels_multiple: [1, 2, 3]        # (32, 64, 96)
-        attention_levels: [false, false, true]
+        attention_levels: [false, true, true]
         num_res_blocks: [1, 1, 1]
         description: "Slightly wider (~350K params)"
       
       # 4-level small
       small_4level:
         channels_multiple: [1, 1, 2, 2]     # (32, 32, 64, 64)
-        attention_levels: [false, false, false, true]
+        attention_levels: [false, false, true, true]
         num_res_blocks: [1, 1, 1, 1]
         description: "Small 4-level (~300K params)"
       
       # 4-level compact
       compact_4level:
         channels_multiple: [1, 1, 1, 2]     # (32, 32, 32, 64)
-        attention_levels: [false, false, false, true]
+        attention_levels: [false, false, true, true]
         num_res_blocks: [1, 1, 1, 1]
         description: "Compact 4-level (~250K params)"
       
@@ -217,15 +217,15 @@ hypersearch:
     base_channels_options: [32, 64, 128]
     
     # Image size options  
-    image_sizes: [64, 128, 256]
+    image_sizes: [128, 256]
     
     # Attention head channel options
-    num_head_channels_options: [32, 64]
+    num_head_channels_options: [64]
     
     # Training parameter ranges
-    learning_rates: [0.000001, 0.00001, 0.00003, 0.0001, 0.0003, 0.001]
-    weight_decays: [0.01, 0.05, 0.1, 0.15]
-    batch_sizes: [8, 16, 32, 64]
+    learning_rates: [0.000025, 0.00002, 0.0002, 0.001]
+    weight_decays: [0.002, 0.02, 0.2]
+    batch_sizes: [16, 64]
     noise_timesteps: [1, 1000]      # 0 means no noise
     
     # Training epochs
